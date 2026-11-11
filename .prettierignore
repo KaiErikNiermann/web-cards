@@ -1,0 +1,5 @@
+# Prettier hard-wraps HTML text content; prose in <p> stays one line per paragraph.
+index.html
+dist/
+.lint/
+.scratch/

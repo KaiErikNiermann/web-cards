@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.scratch/
+.lint/.venv/
+LOG.md
+.remember/
+.playwright-mcp/
