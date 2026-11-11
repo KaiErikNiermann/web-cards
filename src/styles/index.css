@@ -1,0 +1,13 @@
+/* The only stylesheet the app imports. Layer order is declared once, here.
+   Tailwind's preflight is left out on purpose: the export ran on browser defaults
+   (only `body { margin: 0 }`), and preflight would change line heights, list and
+   form-control styling under it. */
+
+@layer theme, base, components, utilities, overrides;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "./tokens.css";
+@import "./base.css";
+@import "./layout.css";
+@import "./cards.css";

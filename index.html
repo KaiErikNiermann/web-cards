@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Card material study</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <div class="page-root" data-root>
+      <div class="page-wrap">
+        <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <div class="flex flex-col gap-1.5">
+            <h1 class="m-0 text-title font-semibold tracking-title">Card material study</h1>
+            <p class="m-0 text-lede leading-lede text-muted">
+              Hover to tilt. Drag a card through its row and the others make room. Double-click (double-tap) sends it home.
+            </p>
+          </div>
+          <p class="hide-small m-0 text-end font-mono text-meta leading-prose text-faint">
+            sway: rotateZ = −k · v<sub>x</sub>, spring-damped<br />reflow: slot = nearest home of dragged centre<br />push: falloff (1 − d/R)² outside own row
+          </p>
+        </header>
+
+        <div class="page-layout">
+          <details class="page-panel rounded-panel border border-panel-edge bg-panel px-5 py-4.5" open>
+            <summary class="flex min-h-7 items-center justify-between text-ui font-semibold tracking-caps text-label uppercase">
+              Material
+              <span class="font-mono text-meta leading-none font-normal tracking-normal text-faint normal-case" data-preset-label></span>
+            </summary>
+            <div class="flex flex-col gap-5.5 pt-4">
+              <section class="flex flex-col gap-2.5">
+                <h2 class="m-0 text-meta font-semibold tracking-caps text-sub uppercase">Finish</h2>
+                <div class="flex flex-wrap gap-1.5" data-presets></div>
+              </section>
+              <section class="flex flex-col gap-3" data-sliders></section>
+              <section class="flex flex-col gap-3">
+                <label class="flex min-h-8 cursor-pointer items-center gap-2.5 text-ui text-label">
+                  <input type="checkbox" class="m-0 size-4.5 accent-accent" data-ret />
+                  Snap to slots (row reflows around the drag)
+                </label>
+                <button
+                  type="button"
+                  class="min-h-11 cursor-pointer rounded-control border border-btn-edge bg-btn px-3.5 font-sans text-ui leading-none font-medium text-ink hover:bg-btn-hover"
+                  data-reset
+                >
+                  Reset order and positions
+                </button>
+              </section>
+              <p class="m-0 text-meta leading-prose text-faint">
+                Snap off: cards land where dropped and every nearby card is pushed away instead. Roughness widens and dims the highlight lobe; reflectance scales it and the edge clearcoat; foil is a spectral band (color-dodge) whose phase follows view angle.
+              </p>
+            </div>
+          </details>
+
+          <main class="page-content" data-sections>
+            <footer class="font-mono text-meta leading-prose text-foot">
+              Faces: SVG-cards 4.0.2 by David Bellot and Huub de Beer, LGPL-2.1, rasterised at 846 × 1224. Art: The Battle for Wesnoth (Rise of Wesnoth story art, core story art “Wesmere”), GPL-2.0-or-later, 1920–2560 px sources.
+            </footer>
+          </main>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <template id="tpl-chip">
+      <button
+        type="button"
+        aria-pressed="false"
+        class="min-h-9 cursor-pointer rounded-control border border-chip-edge bg-chip px-2.75 font-sans text-ui leading-none font-medium text-chip-ink hover:border-chip-edge-hover hover:text-white aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-on-accent"
+      ></button>
+    </template>
+
+    <template id="tpl-slider">
+      <div>
+        <div class="flex justify-between text-ui leading-label font-medium text-label">
+          <label data-label></label>
+          <span class="font-mono text-meta leading-label font-normal text-sub" data-value></span>
+        </div>
+        <input type="range" step="1" class="mx-0 mt-1.5 mb-0 h-7 w-full accent-accent" />
+      </div>
+    </template>
+
+    <!-- Sections -->
+    <template id="tpl-section">
+      <section class="flex flex-col gap-4">
+        <div class="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
+          <h2 class="m-0 text-h2 font-semibold" data-title></h2>
+          <span class="font-mono text-meta leading-note text-faint" data-note></span>
+        </div>
+        <div data-row></div>
+        <p aria-live="polite" class="m-0 font-mono text-ui leading-stack text-label" data-stack-label hidden></p>
+      </section>
+    </template>
+
+    <!-- One card: face slot, material layers, then the border effects outside the clip -->
+    <template id="tpl-card">
+      <div class="slot">
+        <div class="card" role="img">
+          <div class="clip">
+            <div class="face" data-face></div>
+            <div class="layer grain" data-grain></div>
+            <div class="layer foil" data-foil></div>
+            <div class="layer glare"></div>
+            <div class="layer hot" data-hot></div>
+            <div class="layer edge" data-edge></div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Faces, one per card kind -->
+    <template id="face-img">
+      <img class="full" alt="" draggable="false" data-src />
+    </template>
+
+    <template id="face-scene">
+      <div class="par"><img alt="" draggable="false" data-src /></div>
+      <div class="layer ember"></div>
+      <div class="absolute inset-x-0 bottom-0 flex flex-col gap-0.75 bg-(image:--scene-shade) px-3.5 pt-10 pb-3.5">
+        <span class="font-serif text-face-title leading-face-title font-semibold text-white">Temple in the Deep</span>
+        <span class="font-mono text-face-tiny leading-label text-scene-sub">The Rise of Wesnoth · ch. 6</span>
+      </div>
+    </template>
+
+    <template id="face-unit">
+      <div class="absolute inset-0 box-border flex flex-col gap-1.75 bg-unit p-2.25">
+        <div class="flex items-center justify-between rounded-plate bg-parchment px-2 py-1.5 text-unit-ink">
+          <span class="font-serif text-face-name leading-none font-semibold">Elvish Captain</span>
+          <span class="rounded-frame bg-unit-ink px-1.25 py-0.75 font-mono text-face-tiny leading-none font-medium text-parchment">L2</span>
+        </div>
+        <div class="relative h-34 overflow-hidden rounded-frame shadow-unit-frame">
+          <div class="par"><img alt="" draggable="false" data-src data-unit-art /></div>
+        </div>
+        <div class="px-0.5 font-mono text-face-tiny leading-none font-medium text-unit-caption">Elf · neutral · leader</div>
+        <div class="flex grow flex-col gap-1.5 rounded-plate bg-parchment px-2.25 py-2 text-unit-ink">
+          <p class="m-0 font-serif text-face-body leading-face-body"><b>Leadership.</b> Adjacent allies of a lower level deal 25% more damage.</p>
+          <div class="flex justify-between border-t border-unit-rule pt-1.5 font-mono text-face-tiny leading-none font-medium"><span>sword</span><span>5–4 blade</span></div>
+          <div class="flex justify-between font-mono text-face-tiny leading-none font-medium"><span>bow</span><span>5–3 pierce</span></div>
+        </div>
+        <div class="text-center font-mono text-face-micro leading-none text-unit-foot">The Battle for Wesnoth</div>
+      </div>
+    </template>
+
+    <template id="face-cover">
+      <div class="par"><img alt="" draggable="false" data-src /></div>
+      <div class="absolute inset-x-0 top-0 flex flex-col gap-1 bg-(image:--cover-shade) px-3.5 pt-4 pb-11.5">
+        <span class="font-mono text-face-micro leading-none font-medium tracking-kicker text-cover-kicker uppercase">The Battle for</span>
+        <span class="font-serif text-face-display leading-wordmark font-semibold tracking-wordmark text-white">Wesnoth</span>
+      </div>
+      <div class="absolute inset-x-3.5 bottom-3 flex items-center justify-between">
+        <span class="font-serif text-face-label leading-none text-white italic text-shadow-cover-title">The Rise of Wesnoth</span>
+        <span class="rounded-tag bg-cover-tag px-1 py-0.75 font-mono text-face-micro leading-none font-medium text-cover-tag-ink">GPL</span>
+      </div>
+    </template>
+
+    <template id="face-glyph">
+      <div class="absolute inset-0 flex flex-col items-center justify-center bg-paper text-glyph data-red:text-glyph-red" data-ink>
+        <span class="absolute start-2 top-1.75 font-serif text-face-small leading-none font-semibold" data-glyph></span>
+        <span class="font-serif text-face-glyph leading-none font-semibold" data-glyph></span>
+        <span class="suit font-serif text-face-display leading-none font-normal" data-suit></span>
+      </div>
+    </template>
+
+    <template id="face-miniart">
+      <div class="par"><img alt="" draggable="false" data-src /></div>
+      <span class="absolute start-1.75 bottom-1.75 rounded-tag bg-badge px-1 py-0.75 font-mono text-face-tiny leading-none font-medium text-white" data-badge></span>
+    </template>
+
+    <!-- Effects -->
+    <template id="fx-live">
+      <div class="layer sweep-wrap"><div class="sweep"></div></div>
+    </template>
+
+    <template id="fx-orbit">
+      <div class="ring-glow"><div class="ring"></div></div>
+      <div class="ring"></div>
+    </template>
+
+    <template id="fx-trace">
+      <svg class="trace" aria-hidden="true">
+        <rect class="trace-base" x="1" y="1" pathLength="100"></rect>
+        <rect class="trace-run" x="1" y="1" pathLength="100"></rect>
+      </svg>
+    </template>
+
+    <template id="fx-dual">
+      <svg class="trace" aria-hidden="true">
+        <rect class="trace-base" x="1" y="1" pathLength="100"></rect>
+        <rect class="trace-run" x="1" y="1" pathLength="100"></rect>
+        <rect class="trace-runb" x="1" y="1" pathLength="100"></rect>
+      </svg>
+    </template>
+  </body>
+</html>

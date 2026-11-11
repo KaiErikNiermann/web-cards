@@ -1,0 +1,150 @@
+/* The design's whole value table, carried over from the export. @theme entries generate
+   Tailwind utilities; the :root block holds values only CSS consumes (gradients, effects). */
+
+@theme {
+  --font-sans: "IBM Plex Sans", sans-serif;
+  --font-serif: "IBM Plex Serif", serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  /* Page */
+  --color-table: #14161a;
+  --color-ink: #e9ecf1;
+  --color-muted: #a3abb7;
+  --color-label: #c3c8d0;
+  --color-sub: #9aa3af;
+  --color-faint: #8d96a3;
+  --color-foot: #7f8895;
+  --color-panel: #1c1f25;
+  --color-panel-edge: #2c313a;
+  --color-accent: #e3b261;
+  --color-accent-hover: #f3cf8f;
+  --color-on-accent: #1a1408;
+  --color-chip: #22262d;
+  --color-chip-ink: #cfd3da;
+  --color-chip-edge: #343a44;
+  --color-chip-edge-hover: #566070;
+  --color-btn: #2a2f37;
+  --color-btn-edge: #3d4450;
+  --color-btn-hover: #333944;
+  --color-white: #fff;
+
+  /* Card faces */
+  --color-paper: #f7f3ea;
+  --color-glyph: #1b1b1f;
+  --color-glyph-red: #c8242b;
+  --color-scene-sub: #e7c7a8;
+  --color-unit: #1f2a22;
+  --color-parchment: #e9dfc4;
+  --color-unit-ink: #23180c;
+  --color-unit-frame: #b89b5e;
+  --color-unit-caption: #cbbf9c;
+  --color-unit-rule: #c9b98f;
+  --color-unit-foot: #8fa190;
+  --color-cover-kicker: #d9e2ee;
+  --color-cover-tag: #e9eef4;
+  --color-cover-tag-ink: #10161f;
+  --color-badge: rgb(12 14 18 / 72%);
+
+  /* Page type (px in the export, rem here so user font size applies) */
+  --text-title: 1.375rem;
+  --text-h2: 0.9375rem;
+  --text-lede: 0.8125rem;
+  --text-ui: 0.75rem;
+  --text-meta: 0.6875rem;
+
+  /* Card-face type: fixed px, the face is an artboard scaled as one piece */
+  --text-face-micro: 9px;
+  --text-face-tiny: 10px;
+  --text-face-body: 10.5px;
+  --text-face-small: 11px;
+  --text-face-label: 12px;
+  --text-face-name: 13px;
+  --text-face-title: 15px;
+  --text-face-display: 26px;
+  --text-face-glyph: 44px;
+  --leading-label: 1.2;
+  --leading-stack: 1.3;
+  --leading-note: 1.4;
+  --leading-lede: 1.45;
+  --leading-prose: 1.5;
+  --leading-face-title: 1.15;
+  --leading-face-body: 1.35;
+  --leading-wordmark: 0.95;
+  --tracking-title: -0.01em;
+  --tracking-caps: 0.08em;
+  --tracking-kicker: 0.18em;
+  --tracking-wordmark: 0.01em;
+  --radius-tag: 3px;
+  --radius-frame: 4px;
+  --radius-plate: 5px;
+  --radius-control: 7px;
+  --radius-panel: 14px;
+  --text-shadow-cover-title: 0 1px 6px rgb(0 0 0 / 60%);
+  --shadow-unit-frame: 0 0 0 1px var(--color-unit-frame);
+}
+
+@layer theme {
+  :root {
+    /* Layout */
+    --page-pad-block: 48px;
+    --page-pad-inline: 56px;
+    --page-pad-block-sm: 20px;
+    --page-pad-inline-sm: 14px;
+    --page-max: 1440px;
+    --panel-basis: 260px;
+    --content-basis: 560px;
+    --gap-wrap: 36px;
+    --gap-wrap-sm: 24px;
+    --gap-layout: 40px;
+    --gap-layout-sm: 24px;
+    --gap-content-sm: 30px;
+    --range-height: 28px;
+    --range-gap: 6px;
+    --check-size: 18px;
+
+    /* Card material layers */
+    --shade: rgb(0 0 0);
+    --glint: rgb(255 255 255);
+    --grain-size: 128px;
+    --foil-band: repeating-linear-gradient(
+      115deg,
+      #ff8080 0%,
+      #ffd36e 6%,
+      #8cff9e 12%,
+      #6fe6ff 18%,
+      #a98bff 24%,
+      #ff80d9 30%,
+      #ff8080 36%
+    );
+    --foil-size: 260% 260%;
+    --edge-hairline: 1px;
+
+    /* Card-face overlays */
+    --scene-shade: linear-gradient(rgb(10 6 8 / 0%), rgb(10 6 8 / 85%));
+    --cover-shade: linear-gradient(rgb(14 18 26 / 78%), rgb(14 18 26 / 0%));
+
+    /* Animated effects */
+    --sweep-band: linear-gradient(
+      104deg,
+      rgb(255 255 255 / 0%) 42%,
+      rgb(255 255 255 / 42%) 50%,
+      rgb(255 255 255 / 0%) 58%
+    );
+    --ember-glow: radial-gradient(
+      ellipse at 50% 62%,
+      rgb(255 90 60 / 55%),
+      rgb(255 90 60 / 0%) 55%
+    );
+    --ring-gold: rgb(255 206 120);
+    --ring-pad: 2px;
+    --ring-glow-pad: 5px;
+    --ring-glow-blur: 6px;
+    --ring-glow-out: -3px;
+    --trace-base: rgb(160 210 255 / 22%);
+    --trace-run: #a9d8ff;
+    --trace-run-glow: #6fbfff;
+    --trace-runb: #ffcf7a;
+    --trace-runb-glow: #ffb347;
+    --trace-glow-blur: 3px;
+  }
+}

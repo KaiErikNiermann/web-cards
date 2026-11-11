@@ -1,0 +1,22 @@
+@layer base {
+  body {
+    margin: 0;
+  }
+
+  a {
+    color: var(--color-accent);
+  }
+
+  a:hover {
+    color: var(--color-accent-hover);
+  }
+
+  summary {
+    cursor: pointer;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}

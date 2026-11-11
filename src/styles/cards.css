@@ -1,0 +1,344 @@
+/* Card structure and material layers. Per-frame values arrive as custom properties set by
+   render.ts: per card on .slot (geometry, motion, highlight) and once on .page-root for the
+   material (--m-*). Every formula here is the export's inline style, moved into CSS. */
+
+@layer components {
+  @property --orbit {
+    inherits: false;
+    initial-value: 0deg;
+    syntax: "<angle>";
+  }
+
+  @keyframes orbit {
+    to {
+      --orbit: 360deg;
+    }
+  }
+
+  @keyframes dash {
+    to {
+      stroke-dashoffset: -100;
+    }
+  }
+
+  @keyframes sweep {
+    0% {
+      transform: translateX(-75%);
+    }
+
+    55%,
+    100% {
+      transform: translateX(75%);
+    }
+  }
+
+  @keyframes kb {
+    from {
+      transform: scale(1.04) translate(0, 0);
+    }
+
+    to {
+      transform: scale(1.16) translate(-4%, 2.5%);
+    }
+  }
+
+  @keyframes ember {
+    0%,
+    100% {
+      opacity: 0.25;
+    }
+
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  .card-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--row-gap);
+  }
+
+  .card-pile {
+    block-size: var(--pile-h);
+    flex: none;
+    inline-size: var(--pile-w);
+    max-inline-size: 100%;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y;
+  }
+
+  .slot {
+    block-size: var(--h);
+    flex: none;
+    inline-size: var(--w);
+    perspective: var(--persp);
+    position: relative;
+    transform: translate3d(var(--tx), var(--ty), 0);
+    z-index: var(--z);
+  }
+
+  .slot[data-pile] {
+    inset-block-start: var(--top);
+    inset-inline-start: var(--left);
+    position: absolute;
+  }
+
+  .card {
+    --_shadow:
+      0 calc(2px + var(--lift) * 18px) calc(6px + var(--lift) * 34px)
+        color-mix(in srgb, var(--shade) calc(38% + var(--lift) * 18%), transparent),
+      0 1px 2px color-mix(in srgb, var(--shade) 45%, transparent);
+
+    backface-visibility: hidden;
+    border-radius: var(--r);
+    box-shadow: var(--_shadow);
+    cursor: var(--cursor);
+    inset: 0;
+    position: absolute;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    transform: rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz)) skewX(var(--skew))
+      scale(var(--scale));
+    transform-origin: 50% 50%;
+    user-select: none;
+    will-change: transform;
+  }
+
+  .card-pile .card {
+    --_shadow:
+      -3px 0 8px color-mix(in srgb, var(--shade) 35%, transparent),
+      0 calc(2px + var(--lift) * 16px) calc(6px + var(--lift) * 28px)
+        color-mix(in srgb, var(--shade) calc(35% + var(--lift) * 20%), transparent);
+
+    cursor: default;
+    touch-action: pan-y;
+  }
+
+  .clip {
+    background: var(--color-paper);
+    border-radius: var(--r);
+    inset: 0;
+    isolation: isolate;
+    mask-image: linear-gradient(var(--shade), var(--shade));
+    overflow: hidden;
+    position: absolute;
+  }
+
+  .face {
+    block-size: var(--bh);
+    filter: contrast(var(--m-contrast)) saturate(var(--m-saturate));
+    inline-size: var(--bw);
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    position: absolute;
+    transform: scale(var(--face-k));
+    transform-origin: 0 0;
+  }
+
+  .layer {
+    border-radius: inherit;
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .grain {
+    background-image: url("../assets/grain.png");
+    background-size: var(--grain-size) var(--grain-size);
+    mix-blend-mode: overlay;
+    opacity: var(--m-grain-op);
+  }
+
+  .foil {
+    background-image: var(--foil-band);
+    background-position: var(--foil-x) var(--foil-y);
+    background-size: var(--foil-size);
+    mix-blend-mode: color-dodge;
+    opacity: var(--foil-op);
+  }
+
+  /* Highlight lobe (radius widens with roughness) over a clearcoat sheen. */
+  .glare {
+    background:
+      radial-gradient(
+        circle at var(--gx) var(--gy),
+        color-mix(in srgb, var(--glint) var(--m-a1), transparent) 0%,
+        color-mix(in srgb, var(--glint) var(--m-a1-mid), transparent) var(--m-r1),
+        transparent var(--m-r2)
+      ),
+      linear-gradient(
+        var(--glare-angle),
+        color-mix(in srgb, var(--glint) var(--m-sheen), transparent) 0%,
+        transparent 42%
+      );
+    mix-blend-mode: var(--m-blend);
+    opacity: var(--glare-op);
+  }
+
+  .hot {
+    background: radial-gradient(
+      circle at var(--gx) var(--gy),
+      color-mix(in srgb, var(--glint) var(--m-hot-a), transparent) 0%,
+      transparent var(--m-hot-r)
+    );
+    mix-blend-mode: screen;
+    opacity: var(--hot-op);
+  }
+
+  .edge {
+    --_edge:
+      inset 0 0 0 var(--edge-hairline) color-mix(in srgb, var(--glint) var(--m-edge), transparent),
+      inset 0 var(--edge-hairline) 0 color-mix(in srgb, var(--glint) var(--m-edge-top), transparent);
+
+    box-shadow: var(--_edge);
+  }
+
+  .full {
+    display: block;
+    block-size: 100%;
+    inline-size: 100%;
+    inset: 0;
+    object-fit: cover;
+    pointer-events: none;
+    position: absolute;
+    -webkit-user-drag: none;
+  }
+
+  .par {
+    inset: 0;
+    position: absolute;
+    transform: translate3d(var(--art-x), var(--art-y), 0) scale(1.1);
+  }
+
+  .par > img {
+    display: block;
+    block-size: 100%;
+    inline-size: 100%;
+    inset: 0;
+    object-fit: cover;
+    pointer-events: none;
+    position: absolute;
+    -webkit-user-drag: none;
+  }
+
+  .kb {
+    animation: kb 16s ease-in-out infinite alternate;
+  }
+
+  .sweep-wrap {
+    overflow: hidden;
+  }
+
+  .sweep {
+    animation: sweep 4.6s cubic-bezier(0.5, 0, 0.3, 1) infinite;
+    background: var(--sweep-band);
+    inset-block: -10%;
+    inset-inline: -60%;
+    mix-blend-mode: overlay;
+    position: absolute;
+  }
+
+  .ember {
+    animation: ember 2.8s ease-in-out infinite;
+    background: var(--ember-glow);
+    mix-blend-mode: screen;
+  }
+
+  .ring {
+    /* Held in a private property: @eslint/css cannot validate `from var()` in a gradient. */
+    --_sweep: conic-gradient(
+      from var(--orbit),
+      transparent 0deg,
+      transparent 230deg,
+      color-mix(in srgb, var(--ring-gold) 85%, transparent) 318deg,
+      var(--glint) 352deg,
+      transparent 360deg
+    );
+
+    animation: orbit 3.4s linear infinite;
+
+    /* eslint-disable-next-line css/no-invalid-properties -- `from var()` is valid; the validator cannot type it */
+    background: var(--_sweep);
+    border-radius: var(--r);
+    inset: 0;
+    mask:
+      linear-gradient(var(--shade) 0 0) content-box,
+      linear-gradient(var(--shade) 0 0);
+    mask-composite: exclude;
+    padding: var(--ring-pad);
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .ring-glow {
+    border-radius: var(--r);
+    filter: blur(var(--ring-glow-blur));
+    inset: var(--ring-glow-out);
+    opacity: 0.9;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .ring-glow > .ring {
+    padding: var(--ring-glow-pad);
+  }
+
+  .trace {
+    block-size: 100%;
+    inline-size: 100%;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .trace-base {
+    fill: none;
+    stroke: var(--trace-base);
+    stroke-width: 1;
+  }
+
+  .trace-run {
+    animation: dash 3.2s linear infinite;
+    fill: none;
+    filter: drop-shadow(0 0 var(--trace-glow-blur) var(--trace-run-glow));
+    stroke: var(--trace-run);
+    stroke-dasharray: 9 41;
+    stroke-linecap: round;
+    stroke-width: 2;
+  }
+
+  .trace-runb {
+    animation: dash 5s linear infinite reverse;
+    fill: none;
+    filter: drop-shadow(0 0 var(--trace-glow-blur) var(--trace-runb-glow));
+    stroke: var(--trace-runb);
+    stroke-dasharray: 5 20;
+    stroke-linecap: round;
+    stroke-width: 2;
+  }
+
+  .suit {
+    font-variant-emoji: text;
+  }
+
+  @media (pointer: coarse) {
+    .card {
+      touch-action: pan-y;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ring,
+    .trace-run,
+    .trace-runb,
+    .sweep,
+    .kb,
+    .ember {
+      animation: none;
+    }
+  }
+}

@@ -1,0 +1,68 @@
+/* Page frame: a fluid two-pane layout where the panel wraps above the content when the
+   content cannot keep its 560px basis. */
+
+@layer components {
+  .page-root {
+    background: var(--color-table);
+    box-sizing: border-box;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    min-block-size: 100vb;
+
+    /* Same as the export's overflow-x: hidden (the other axis computes to auto). */
+    overflow: hidden visible;
+    padding-block: var(--page-pad-block);
+    padding-inline: var(--page-pad-inline);
+    position: relative;
+  }
+
+  .page-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-wrap);
+    margin-inline: auto;
+    max-inline-size: var(--page-max);
+  }
+
+  .page-layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--gap-layout);
+  }
+
+  .page-panel {
+    box-sizing: border-box;
+    flex: 1 1 var(--panel-basis);
+    max-inline-size: 100%;
+  }
+
+  .page-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-layout);
+    flex: 999 1 var(--content-basis);
+    min-inline-size: 0;
+  }
+
+  /* Matches SMALL_VIEWPORT in data.ts, which switches the card geometry at the same width. */
+  @media (width <= 700px) {
+    .page-root {
+      padding-block: var(--page-pad-block-sm);
+      padding-inline: var(--page-pad-inline-sm);
+    }
+
+    .page-wrap,
+    .page-layout {
+      gap: var(--gap-wrap-sm);
+    }
+
+    .page-content {
+      gap: var(--gap-content-sm);
+    }
+
+    .hide-small {
+      display: none;
+    }
+  }
+}
