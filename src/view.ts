@@ -72,6 +72,8 @@ export interface CardVars {
   readonly foil: Vars;
   readonly glare: Vars;
   readonly hot: Vars;
+  /** Position of the glare and hot-spot lobes, written on both spot elements. */
+  readonly spot: Vars;
 }
 
 export interface CardView {
@@ -132,15 +134,21 @@ export function cardView(c: CardDef, p: Phys, g: Geometry, mat: MaterialView): C
   const foilOp = mat.foil * (0.22 + 0.6 * p.h);
   const hotOp = p.h * (mat.hotLobe ? 1 : 0);
   const { slot, card } = placement(p, pad);
-  const glint = { "--gx": pct(p.gx), "--gy": pct(p.gy) };
+  // Lobe centre in whole px: finer moves are invisible, and on an unlit card each one repaints.
+  const spot = {
+    "--spot-x": px(Math.round((p.gx / 100) * w)),
+    "--spot-y": px(Math.round((p.gy / 100) * h)),
+  };
+  const isFoilHidden = foilOp < 0.01;
+  const isHotHidden = hotOp < 0.01;
   return {
     w,
     h,
     step,
     pad,
     radius: face.radius,
-    foilHidden: foilOp < 0.01,
-    hotHidden: hotOp < 0.01,
+    foilHidden: isFoilHidden,
+    hotHidden: isHotHidden,
     vars: {
       slot: {
         ...slot,
@@ -153,18 +161,21 @@ export function cardView(c: CardDef, p: Phys, g: Geometry, mat: MaterialView): C
         "--face-k": String(f((w / face.bw) * 1000) / 1000),
       },
       card,
-      art: { "--art-x": px(-p.ry * face.parallax), "--art-y": px(p.rx * face.parallax) },
-      foil: {
-        "--foil-op": String(f(foilOp)),
-        "--foil-x": pct(50 + (p.px - 0.5) * 90 * p.h + p.rot * 3 + p.ry * 2),
-        "--foil-y": pct(50 + (p.py - 0.5) * 90 * p.h + p.rx * 2),
-      },
-      glare: {
-        ...glint,
-        "--glare-angle": deg(160 + p.ry * 3),
-        "--glare-op": String(f(0.25 + 0.75 * p.h)),
-      },
-      hot: { ...glint, "--hot-op": String(f(hotOp)) },
+      // No parallax in a pile: moving the art would repaint each tilting card of a fan.
+      art: p.pile
+        ? { "--art-x": "0px", "--art-y": "0px" }
+        : { "--art-x": px(-p.ry * face.parallax), "--art-y": px(p.rx * face.parallax) },
+      foil: isFoilHidden
+        ? {}
+        : {
+            "--foil-op": String(f(foilOp)),
+            "--foil-x": pct(50 + (p.px - 0.5) * 90 * p.h + p.rot * 3 + p.ry * 2),
+            "--foil-y": pct(50 + (p.py - 0.5) * 90 * p.h + p.rx * 2),
+          },
+      glare: { "--glare-op": String(f(0.25 + 0.75 * p.h)) },
+      spot,
+      // Hidden layers keep their last values; nothing is written until they show again.
+      hot: isHotHidden ? {} : { "--hot-op": String(f(hotOp)) },
     },
   };
 }

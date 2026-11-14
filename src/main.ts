@@ -207,8 +207,15 @@ function renderControls(): void {
   retToggle.checked = m.ret;
 }
 
-function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>): void {
+/** Cards that were live in the last rendered frame; a card at rest two frames running is skipped. */
+const liveLastFrame = new Set<string>();
+
+/** Writes one card's state to the DOM; unless `isForced`, only while it moves or just stopped. */
+function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>, isForced: boolean): void {
   const p = table.ph(c.def.id);
+  if (!isForced && !p.live && !liveLastFrame.has(c.def.id)) return;
+  if (p.live) liveLastFrame.add(c.def.id);
+  else liveLastFrame.delete(c.def.id);
   const v = cardView(c.def, p, live.geo, mat);
   table.meta.set(c.def.id, { sec: c.sec, w: v.w, h: v.h, step: v.step, pad: v.pad });
   setVars(c.slot, v.vars.slot);
@@ -216,10 +223,15 @@ function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>): void {
   setVars(c.foil, v.vars.foil);
   setVars(c.glare, v.vars.glare);
   setVars(c.hot, v.vars.hot);
+  for (const el of c.spots) setVars(el, v.vars.spot);
   if (c.art) setVars(c.art, v.vars.art);
   c.slot.toggleAttribute("data-pile", p.pile);
   c.slot.toggleAttribute("data-live", p.live);
-  c.slot.toggleAttribute("data-still", offscreen.has(c.def.id) || table.isBuried(c.def.id));
+  // Pile cards move by transform only (physics.ts tickMember), so they never need light layers.
+  const isLit =
+    p.drag || (!p.pile && (p.h > 0.02 || p.lift > 0.02 || Math.abs(p.rx) + Math.abs(p.ry) > 0.05));
+  c.slot.toggleAttribute("data-lit", isLit);
+  c.slot.toggleAttribute("data-still", offscreen.has(c.def.id) || table.isPileQuiet(c.def.id));
   setHidden(c.grain, mat.grainHidden);
   setHidden(c.foil, v.foilHidden);
   setHidden(c.hot, v.hotHidden);
@@ -233,10 +245,14 @@ function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>): void {
   }
 }
 
-function render(): void {
+/**
+ * Writes the simulation to the DOM. The frame loop passes `isForced = false` to skip cards at
+ * rest; anything that changes every card (material, geometry, piles, visibility) forces.
+ */
+function render(isForced = true): void {
   const mat = materialView(table.m);
   setVars(root, mat.vars);
-  for (const c of cards) renderCard(c, mat);
+  for (const c of cards) renderCard(c, mat, isForced);
   renderSections();
   renderControls();
 }
@@ -245,13 +261,14 @@ function kick(): void {
   if (live.raf) return;
   live.raf = requestAnimationFrame((now) => {
     live.raf = 0;
-    if (live.laidOut !== table.version) {
+    const t0 = performance.now();
+    const hasNewPiles = live.laidOut !== table.version;
+    if (hasNewPiles) {
       live.laidOut = table.version;
       relayout();
     }
-    const t0 = performance.now();
     const isActive = table.tick(now);
-    render();
+    render(hasNewPiles);
     hud.record(performance.now() - t0);
     if (isActive) kick();
   });

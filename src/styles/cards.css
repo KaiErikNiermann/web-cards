@@ -71,23 +71,18 @@
     syntax: "<length>";
   }
 
-  @property --gx {
+  @property --spot-x {
     inherits: false;
-    initial-value: 30%;
-    syntax: "<percentage>";
+    initial-value: 0;
+    syntax: "<length>";
   }
 
-  @property --gy {
+  @property --spot-y {
     inherits: false;
-    initial-value: 18%;
-    syntax: "<percentage>";
+    initial-value: 0;
+    syntax: "<length>";
   }
 
-  @property --glare-angle {
-    inherits: false;
-    initial-value: 160deg;
-    syntax: "<angle>";
-  }
 
   @property --glare-op {
     inherits: false;
@@ -220,10 +215,11 @@
   }
 
   .slot[data-pile] .card {
+    /* Fixed, unlike a single card's: a shadow that grew with the lift re-blurred every lifting
+       card of a fan each frame. The lift itself still shows as the card rising and scaling. */
     --_shadow:
       -3px 0 8px color-mix(in srgb, var(--shade) 35%, transparent),
-      0 calc(2px + var(--lift) * 16px) calc(6px + var(--lift) * 28px)
-        color-mix(in srgb, var(--shade) calc(35% + var(--lift) * 20%), transparent);
+      0 6px 14px color-mix(in srgb, var(--shade) 42%, transparent);
   }
 
   .clip {
@@ -274,32 +270,47 @@
     opacity: var(--foil-op);
   }
 
-  /* Highlight lobe (radius widens with roughness) over a clearcoat sheen. */
+  /* Highlight lobe (radius widens with roughness) over a clearcoat sheen. The lobe is a
+     child moved by transform and the strength is the container's opacity. */
   .glare {
-    background:
-      radial-gradient(
-        circle at var(--gx) var(--gy),
-        color-mix(in srgb, var(--glint) var(--m-a1), transparent) 0%,
-        color-mix(in srgb, var(--glint) var(--m-a1-mid), transparent) var(--m-r1),
-        transparent var(--m-r2)
-      ),
-      linear-gradient(
-        var(--glare-angle),
-        color-mix(in srgb, var(--glint) var(--m-sheen), transparent) 0%,
-        transparent 42%
-      );
+    background: linear-gradient(
+      var(--glare-angle),
+      color-mix(in srgb, var(--glint) var(--m-sheen), transparent) 0%,
+      transparent 42%
+    );
     mix-blend-mode: var(--m-blend);
     opacity: var(--glare-op);
   }
 
   .hot {
+    mix-blend-mode: screen;
+    opacity: var(--hot-op);
+  }
+
+  .spot {
+    aspect-ratio: 1;
+    inline-size: var(--spot-size);
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    position: absolute;
+    transform: translate(var(--spot-x), var(--spot-y)) translate(-50%, -50%);
+  }
+
+  .glare > .spot {
     background: radial-gradient(
-      circle at var(--gx) var(--gy),
+      circle closest-side,
+      color-mix(in srgb, var(--glint) var(--m-a1), transparent) 0%,
+      color-mix(in srgb, var(--glint) var(--m-a1-mid), transparent) var(--m-r1),
+      transparent var(--m-r2)
+    );
+  }
+
+  .hot > .spot {
+    background: radial-gradient(
+      circle closest-side,
       color-mix(in srgb, var(--glint) var(--m-hot-a), transparent) 0%,
       transparent var(--m-hot-r)
     );
-    mix-blend-mode: screen;
-    opacity: var(--hot-op);
   }
 
   .edge {
@@ -452,6 +463,19 @@
     .card {
       touch-action: pan-y;
     }
+  }
+
+  /* Lit (hovered, dragged, lifted or tilted): the art and the two light layers become layers
+     of their own. A moving lobe then repaints only a card-sized layer of gradients, not the
+     card's images and filters; the oversized lobe squares stay unpromoted, since raising
+     them on every hover cost large raster bursts. */
+  .slot[data-lit] .par {
+    will-change: transform;
+  }
+
+  .slot[data-lit] .glare,
+  .slot[data-lit] .hot {
+    will-change: opacity;
   }
 
   /* Cards off screen or buried in a closed pile hold their animations still. */

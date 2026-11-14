@@ -140,6 +140,11 @@
     );
     --foil-size: 260% 260%;
     --edge-hairline: 1px;
+    --glare-angle: 160deg;
+
+    /* Side of the glare and hot-spot squares, as a share of the card's inline size; their
+       gradients run to closest-side, a radius of 1.1 card widths. */
+    --spot-size: 220%;
 
     /* Card-face overlays */
     --scene-shade: linear-gradient(rgb(10 6 8 / 0%), rgb(10 6 8 / 85%));

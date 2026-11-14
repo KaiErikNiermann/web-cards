@@ -40,6 +40,8 @@ export interface CardRefs {
   readonly grain: HTMLElement;
   readonly foil: HTMLElement;
   readonly glare: HTMLElement;
+  /** The glare and hot-spot lobes, moved by transform. */
+  readonly spots: readonly HTMLElement[];
   readonly hot: HTMLElement;
   /** The parallax art window, on faces that have one. */
   readonly art: HTMLElement | undefined;
@@ -117,6 +119,10 @@ function buildCard(c: CardDef, sec: SectionId, i: number): CardRefs {
     grain: must(frag, "[data-grain]", HTMLElement),
     foil: must(frag, "[data-foil]", HTMLElement),
     glare: must(frag, "[data-glare]", HTMLElement),
+    spots: [
+      must(frag, "[data-glare-spot]", HTMLElement),
+      must(frag, "[data-hot-spot]", HTMLElement),
+    ],
     hot: must(frag, "[data-hot]", HTMLElement),
     art: frag.querySelector<HTMLElement>(".par") ?? undefined,
     svg,

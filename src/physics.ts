@@ -338,11 +338,16 @@ export class CardTable {
     return loc !== undefined && (this.piles[loc.sec][loc.k]?.ids.length ?? 0) > 1;
   }
 
-  /** Whether `id` is under another card of a closed pile, so nothing of it shows. */
-  isBuried(id: string): boolean {
+  /**
+   * Whether `id`'s animations should hold still because of its pile: under the top card of a
+   * closed pile, or any card but the pointed one of an open fan.
+   */
+  isPileQuiet(id: string): boolean {
     const loc = this.locs.get(id);
     const pile = loc && this.piles[loc.sec][loc.k];
-    return !!pile && loc.j < pile.ids.length - 1 && !pile.open && pile.o === 0;
+    if (!pile || pile.ids.length < 2) return false;
+    if (pile.open || pile.o > 0) return loc.j !== Math.round(pile.fs);
+    return loc.j < pile.ids.length - 1;
   }
 
   pileOf(id: string): PileRef | undefined {
@@ -752,18 +757,24 @@ export class CardTable {
     const scrub = pile.o * Math.exp(-(d * d) / 0.5);
     const lt = pile.fold ? 0.3 : scrub;
     p.lift += (lt - p.lift) * 0.2;
-    p.h += (Math.max(p.lift, pile.fold ? 0.7 : 0) - p.h) * 0.2;
+    // A fanned card moves by transform only: its light (highlight, glare position) stays at
+    // rest, since every change of light re-rasters the card and a fan changes several a frame.
+    p.h += ((pile.fold ? 0.7 : 0) - p.h) * 0.2;
     const trx = -(pile.py - 0.5) * 12 * p.lift;
     const tryy = clamp(d * 9, -12, 12) * p.lift;
     p.rx += (trx - p.rx) * 0.2;
     p.ry += (tryy - p.ry) * 0.2;
-    p.gx += (50 - d * 40 - p.gx) * 0.25;
-    p.gy += (pile.py * 100 - p.gy) * 0.25;
+    p.gx += (30 - p.gx) * 0.25;
+    p.gy += (18 - p.gy) * 0.25;
     const fanRot = (j - (n - 1) / 2) * 0.9 * (1 - p.lift);
     const rt = lerp(jitter(id), fanRot, pile.o);
     p.rv = (p.rv + (rt - p.rot) * 0.14) * 0.8;
     p.rot += p.rv;
-    p.pz = (pile.o > 0.02 ? Z_OPEN_PILE : 1) + j + Math.round(p.lift * 60);
+    // Order changes only when the pointed card does: a z-index that followed the lift would
+    // change every frame and re-sort the layers each time.
+    const isOpen = pile.o > 0.02;
+    const isPointed = isOpen && j === Math.round(pile.fs);
+    p.pz = (isOpen ? Z_OPEN_PILE : 1) + j + (isPointed ? n : 0);
     return p.home || !isSlotAtRest || isMemberMoving(p, lt, trx, tryy, rt);
   }
 
@@ -803,11 +814,7 @@ export class CardTable {
           ? this.tickMember(id, p, meta, pile, loc.j)
           : this.tickFree(id, p, meta, pile === armed);
       p.live =
-        isMoving ||
-        p.drag ||
-        p.lift > 0.01 ||
-        Math.abs(p.rx) > 0.05 ||
-        Math.abs(p.ry) > 0.05;
+        isMoving || p.drag || p.lift > 0.01 || Math.abs(p.rx) > 0.05 || Math.abs(p.ry) > 0.05;
       isActive = isMoving || isActive;
     }
     return isActive;

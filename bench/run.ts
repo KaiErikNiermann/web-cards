@@ -1,6 +1,7 @@
 // Timing and memory benchmark of the production build in headless Chromium.
 //
 //   node bench/run.ts [--label NAME] [--runs N] [--profile desktop|phone] [--compare FILE]
+//                     [--scenario ID ...]
 //
 // Builds the site, serves dist/, runs every scenario (bench/scenarios.ts) `runs` times per
 // profile on a fresh page, and writes the per-field medians to bench/results/NAME.json.
@@ -152,6 +153,7 @@ async function main(): Promise<void> {
       runs: { type: "string", default: "3" },
       profile: { type: "string" },
       compare: { type: "string" },
+      scenario: { type: "string", multiple: true },
     },
   });
   const runs = Math.max(1, Number(values.runs));
@@ -167,6 +169,7 @@ async function main(): Promise<void> {
       const byScenario: Record<string, Sample> = {};
       for (const sc of SCENARIOS) {
         if (sc.mouseOnly && profile.touch) continue;
+        if (values.scenario && !values.scenario.includes(sc.id)) continue;
         const samples: Sample[] = [];
         for (let i = 0; i < runs; i += 1) samples.push(await runOnce(browser, profile, sc));
         byScenario[sc.id] = medianSample(samples);
