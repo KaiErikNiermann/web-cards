@@ -585,6 +585,42 @@
     transform-style: flat;
   }
 
+  /* HTML-in-Canvas faces (src/gl/drawable.ts): the canvas holding the real face takes the
+     face's place and scale in the card; the browser paints the face into it, and the face
+     inside lays out at the artboard size as its static child. */
+  .gl-drawable {
+    block-size: var(--draw-h);
+    inline-size: var(--draw-w);
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    position: absolute;
+    transform: scale(var(--face-k, 1));
+    transform-origin: 0 0;
+  }
+
+  /* The shader draws the art (with its parallax) and the moving layers itself. */
+  .gl-drawable :is(img, .par, .ember) {
+    visibility: hidden;
+  }
+
+  /* A card back's copy, drawn once per size: rendered (a hidden canvas draws nothing) but
+     invisible, at the page's corner. */
+  .gl-drawable-page {
+    opacity: 0;
+    pointer-events: none;
+    position: fixed;
+    transform: none;
+    z-index: var(--z-behind);
+  }
+
+  /* Sized to the canvas: inside a drawable canvas a child with only positioned content laid
+     out 0 px wide. */
+  .gl-drawable-back {
+    block-size: 100%;
+    inline-size: 100%;
+    position: relative;
+  }
+
   /* A card with DOM parts drawn on the overlay canvas (dragged or showcased) rises above it. */
   .slot[data-gl-top] {
     z-index: var(--z-gl-top);

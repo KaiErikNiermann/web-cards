@@ -1,10 +1,12 @@
 // Where the WebGL renderer gets each card's face from. The shader, physics and input do not
-// depend on how the face became a texture, so the source can differ by browser:
-//  - snapshotFaces (raster.ts) works everywhere: it rasterizes the DOM faces once through an
-//    SVG foreignObject, into one atlas per card size;
-//  - an HTML-in-Canvas source (`layoutsubtree` + `texElementImage2D`, Chromium origin trial)
-//    would paint the live DOM into the texture and repaint it on change. Run side by side in
-//    Chromium, the two give a pixel-for-pixel parity test of the snapshot.
+// depend on how the face became a texture, so the source differs by browser:
+//  - drawableFaces (drawable.ts), where the browser has HTML-in-Canvas (Chromium 157+): the
+//    real face, kept in a drawable canvas inside the card, is painted by the browser itself
+//    and uploaded on every change;
+//  - snapshotFaces (raster.ts) everywhere else, or with `?glsrc=snapshot`: the faces are
+//    rasterized through an SVG foreignObject into one atlas per card size, with stand-ins for
+//    what that misses (controls, live text, line locking).
+// Faces baked at build time (baked.ts) use their image with either.
 
 import type { Geometry } from "../data";
 import type { CardRefs } from "../dom";

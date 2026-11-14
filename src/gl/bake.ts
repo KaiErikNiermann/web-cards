@@ -12,6 +12,10 @@
 //    selection, IME and accessibility as usual) and follows its transform. The material
 //    layers (foil, glare) do not light it, and on a card in a row it sits above the whole
 //    row's canvas, so a card stacked over it would not cover it.
+//
+// With HTML-in-Canvas faces (drawable.ts, Chromium) the browser draws every face itself and the
+// face stays live and interactive, so "runtime", "live" and "none" all mean the same there:
+// drawn from the real element on every change. "build" still uses its baked image.
 
 /** Elements whose text is drawn live into the atlas. */
 export const LIVE = "[data-live-text], [data-bake='live']";

@@ -13,6 +13,7 @@ import type { CardTable, Point } from "../physics";
 import type { ShowFrame } from "../showcase";
 import { cardFrame, materialView, type CardFrame, type MaterialView } from "../view";
 import { hasDomParts } from "./bake";
+import { drawableFaces, hasDrawableCanvas } from "./drawable";
 import type { FaceImages, FaceSource } from "./faces";
 import { watchLiveFaces } from "./live";
 import { paint as paintText } from "./livetext";
@@ -198,6 +199,7 @@ function fxReach(fx: CardRefs["def"]["fx"], t: GlTokens): number {
 
 const byZ = (a: Placed, b: Placed): number => a.fr.z - b.fr.z;
 
+
 interface SectionSurface {
   readonly id: SectionId;
   readonly row: HTMLElement;
@@ -236,7 +238,10 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
 
 export function mountGl(o: GlOptions): GlRenderer {
   const { root, table, cards } = o;
-  const source: FaceSource = snapshotFaces(root);
+  const backend = faceBackend();
+  root.dataset.glFaces = backend;
+  const drawable = backend === "drawable" ? drawableFaces(root, onDrawn) : undefined;
+  const source: FaceSource = drawable ?? snapshotFaces(root);
   let faces: ReadonlyMap<string, FaceImages> = new Map();
   /** Geometry the faces were rasterized at; a change of card size rasterizes them again. */
   let rasterGeo: Geometry | undefined;
@@ -258,11 +263,16 @@ export function mountGl(o: GlOptions): GlRenderer {
   let statsAt = 0;
   let isForced = true;
   let loop = 0;
-  /** Cards with DOM parts (bake.ts): on the overlay canvas their slot rises above it. */
-  const withDomParts = cards.filter((c) => {
-    const face = c.card.querySelector("[data-face]");
-    return face !== null && hasDomParts(face);
-  });
+  /**
+   * Cards with DOM parts (bake.ts): on the overlay canvas their slot rises above it. With
+   * HTML-in-Canvas faces nothing stays DOM over the canvas: the browser draws every part.
+   */
+  const withDomParts = drawable
+    ? []
+    : cards.filter((c) => {
+        const face = c.card.querySelector("[data-face]");
+        return face !== null && hasDomParts(face);
+      });
   const sectionsWithParts = new Set(withDomParts.map((c) => c.sec));
 
   const images = (id: string): CardImages | undefined => {
@@ -629,6 +639,18 @@ export function mountGl(o: GlOptions): GlRenderer {
     return refreshing;
   }
 
+  /** An HTML-in-Canvas face (drawable.ts) drew something new: upload it, redraw its card. */
+  function onDrawn(id: string): void {
+    const f = faces.get(id);
+    for (const src of [f?.face?.source, f?.back?.source]) {
+      if (!(src instanceof HTMLCanvasElement)) continue;
+      for (const s of sections) s.surface.reupload(src);
+      overlay?.surface.reupload(src);
+    }
+    dirtyCards.add(id);
+    schedule();
+  }
+
   /**
    * Redraws a card's live text into its atlas and uploads the changed rectangles; false when
    * the card has none (its change needs a new snapshot).
@@ -663,7 +685,11 @@ export function mountGl(o: GlOptions): GlRenderer {
       await rasterizeAll(o.geometry());
       makeSurfaces(t, grain);
       root.dataset.gl = "on";
-      watchLiveFaces({
+      if (drawable) {
+        // Every face is real and drawn by the browser into its canvas: no snapshots to keep
+        // fresh, no DOM phase; the invisible face takes input directly.
+        for (const c of cards) c.slot.dataset.glGhost = "";
+      } else watchLiveFaces({
         cards,
         isOn: () => root.dataset.gl === "on",
         refresh,
@@ -686,7 +712,12 @@ export function mountGl(o: GlOptions): GlRenderer {
     ready,
     upscale(id: string): void {
       // Up to the showcase's 3x; the face hidden behind WebGL keeps its last art (refresh).
-      void refresh([id], 3);
+      const c = cards.find((x) => x.def.id === id);
+      if (drawable && c) {
+        const geo = o.geometry();
+        const k = c.def.mini ? geo.mw / FACE.mini.bw : geo.w / FACE.full.bw;
+        drawable.rescale(id, k * (window.devicePixelRatio || 1) * 3);
+      } else void refresh([id], 3);
     },
     frame(now: number): void {
       frame(now);
@@ -699,4 +730,16 @@ export function mountGl(o: GlOptions): GlRenderer {
       schedule();
     },
   };
+}
+
+/**
+ * Where faces come from: HTML-in-Canvas (drawable.ts) where the browser has it, else snapshots
+ * (raster.ts). `?glsrc=snapshot` picks snapshots anyway; `?glsrc=drawable` insists on the
+ * other and fails where it is missing.
+ */
+function faceBackend(): "drawable" | "snapshot" {
+  const want = new URLSearchParams(location.search).get("glsrc");
+  if (want === "drawable" && !hasDrawableCanvas()) throw new Error("gl: ?glsrc=drawable, but this browser has no HTML-in-Canvas");
+  if (want === "snapshot" || want === "canvas") return "snapshot";
+  return hasDrawableCanvas() ? "drawable" : "snapshot";
 }

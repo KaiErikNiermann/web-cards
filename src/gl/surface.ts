@@ -290,6 +290,21 @@ export class Surface {
     return true;
   }
 
+  /**
+   * Uploads an image in use again in full (an HTML-in-Canvas face that drew something new,
+   * possibly at a new size); false when this canvas has not uploaded it.
+   */
+  reupload(src: HTMLCanvasElement): boolean {
+    const gl = this.gl;
+    const tex = this.textures.get(src);
+    if (!gl || !tex) return false;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    return true;
+  }
+
   /** Frees uploaded images whose source is no longer in use (a face snapshotted again). */
   retainSources(inUse: ReadonlySet<TexImageSource>): void {
     for (const [src, tex] of this.textures) {

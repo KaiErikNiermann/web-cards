@@ -46,7 +46,8 @@ function countLive(): number {
 
 const hud = mountHud(document.body, () => {
   const state = live.raf === 0 ? "idle" : "running";
-  return `${String(countLive())} live cards · sim ${state}${gl ? " · webgl" : ""}`;
+  const renderer = gl ? ` · webgl ${root.dataset.glFaces ?? ""}` : "";
+  return `${String(countLive())} live cards · sim ${state}${renderer}`;
 });
 /** Cards outside the viewport; their animations are held still. */
 const offscreen = new Set<string>();
