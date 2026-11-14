@@ -338,6 +338,14 @@ export class CardTable {
     return loc !== undefined && (this.piles[loc.sec][loc.k]?.ids.length ?? 0) > 1;
   }
 
+  /** Whether any pile is fanned out or still closing. */
+  get isFanning(): boolean {
+    for (const { pile } of this.allPiles()) {
+      if (pile.ids.length > 1 && (pile.open || pile.o > 0)) return true;
+    }
+    return false;
+  }
+
   /**
    * Whether `id`'s animations should hold still because of its pile: under the top card of a
    * closed pile, or any card but the pointed one of an open fan.

@@ -470,9 +470,25 @@
     will-change: opacity;
   }
 
-  /* Cards off screen or buried in a closed pile hold their animations still. */
+  /* Cards off screen, buried in a closed pile, or on the page while a pile is fanned hold
+     their animations still. */
   .slot[data-still] * {
     animation-play-state: paused;
+  }
+
+  /* The cards of a fanned pile, and cards buried in a closed pile, draw without their material
+     layers, face filter or blurred shadow. A fan moves every frame, and on a phone these
+     effects across eight full-size cards held a Stack scrub at about 23 fps. */
+  .slot[data-flat] .layer {
+    display: none;
+  }
+
+  .slot[data-flat] .face {
+    filter: none;
+  }
+
+  .slot[data-flat] .card {
+    --_shadow: 0 1px 2px color-mix(in srgb, var(--shade) 45%, transparent);
   }
 
   @media (prefers-reduced-motion: reduce) {

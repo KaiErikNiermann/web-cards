@@ -63,7 +63,9 @@ const live: {
   raf: number;
   laidOut: number;
   scrub: TouchScrub | undefined;
-} = { geo: geometryFor(window.innerWidth), raf: 0, laidOut: -1, scrub: undefined };
+  /** Whether a pile was fanned in the last rendered frame. */
+  fanning: boolean;
+} = { geo: geometryFor(window.innerWidth), raf: 0, laidOut: -1, scrub: undefined, fanning: false };
 
 /** Offset of `el` from the root's padding box, in layout px (transforms ignored). */
 function layoutPos(el: HTMLElement): Point {
@@ -214,7 +216,12 @@ function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>, isForced:
   const isLit =
     p.drag || (!p.pile && (p.h > 0.02 || p.lift > 0.02 || Math.abs(p.rx) + Math.abs(p.ry) > 0.05));
   c.slot.toggleAttribute("data-lit", isLit);
-  c.slot.toggleAttribute("data-still", offscreen.has(c.def.id) || table.isPileQuiet(c.def.id));
+  // While a pile is fanned every effect animation holds still and its cards draw flat.
+  const isQuiet = table.isPileQuiet(c.def.id);
+  c.slot.toggleAttribute("data-still", live.fanning || offscreen.has(c.def.id) || isQuiet);
+  // Every card of a fanned pile draws flat, the pointed one too: flipping cards between flat
+  // and full as the pointer moves along the fan re-rasterized them (65 against 117 fps).
+  c.slot.toggleAttribute("data-flat", isQuiet || (p.pile && live.fanning));
   setHidden(c.grain, mat.grainHidden);
   setHidden(c.foil, v.foilHidden);
   setHidden(c.hot, v.hotHidden);
@@ -238,12 +245,15 @@ function kick(): void {
     live.raf = 0;
     const t0 = performance.now();
     const hasNewPiles = live.laidOut !== table.version;
+    const isFanning = table.isFanning;
+    const hasNewFan = isFanning !== live.fanning;
+    live.fanning = isFanning;
     if (hasNewPiles) {
       live.laidOut = table.version;
       relayout();
     }
     const isActive = table.tick(now);
-    render(hasNewPiles);
+    render(hasNewPiles || hasNewFan);
     hud.record(performance.now() - t0);
     if (isActive) kick();
   });
