@@ -1,7 +1,7 @@
 // Maps simulation state to the custom properties cards.css consumes. Pure: no DOM access
 // except `setVars`, which writes only the properties whose value changed.
 
-import { DECKS, FACE, type CardDef, type Geometry, type SectionId } from "./data";
+import { FACE, type CardDef, type Geometry } from "./data";
 import type { Material, Phys } from "./physics";
 
 /** Rounds to two decimals, as the export did for every emitted style value. */
@@ -67,26 +67,36 @@ export interface CardView {
   /** Card size in layout px, for the physics' push radii and the trace outline. */
   readonly w: number;
   readonly h: number;
+  readonly step: number;
+  readonly pad: number;
   readonly radius: number;
 }
 
-export function cardSize(c: CardDef, g: Geometry): { w: number; h: number } {
-  return c.mini ? { w: g.mw, h: g.mh } : { w: g.w, h: g.h };
+export interface CardSize {
+  readonly w: number;
+  readonly h: number;
+  /** Fan step of an open pile and the lift headroom above it. */
+  readonly step: number;
+  readonly pad: number;
 }
 
-function placement(p: Phys, sec: SectionId, i: number, g: Geometry): Vars {
-  if (sec === "stack") {
-    const n = DECKS.stack.length;
-    const fan = (i - (n - 1) / 2) * 0.9;
+/** Card size by kind; cardlets scale the fan step and lift headroom with their height. */
+export function cardSize(c: CardDef, g: Geometry): CardSize {
+  if (!c.mini) return { w: g.w, h: g.h, step: g.step, pad: g.liftPad };
+  const k = g.mh / g.h;
+  return { w: g.mw, h: g.mh, step: Math.round(g.step * k), pad: Math.round(g.liftPad * k) };
+}
+
+function placement(p: Phys, pad: number): Vars {
+  if (p.pile) {
     return {
-      "--left": px(i * g.step),
-      "--top": px(g.liftPad),
-      "--tx": "0px",
-      "--ty": px(-p.lift * g.liftPad),
-      "--z": String(10 + Math.round(p.lift * 60) + i),
-      "--rz": deg(fan * (1 - p.lift)),
+      "--tx": px(p.bx + p.x + p.ox),
+      "--ty": px(p.by + p.y + p.oy - p.lift * pad),
+      "--z": String(p.drag ? Z_DRAGGING : p.pz),
+      "--rz": deg(p.rot),
       "--skew": "0deg",
       "--scale": String(f(1 + p.lift * 0.05)),
+      "--cursor": "grab",
     };
   }
   return {
@@ -95,31 +105,26 @@ function placement(p: Phys, sec: SectionId, i: number, g: Geometry): Vars {
     "--z": String(p.drag ? Z_DRAGGING : p.z),
     "--rz": deg(p.rot),
     "--skew": deg(-p.rot * 0.35),
-    "--scale": String(f(1 + p.lift * 0.045)),
+    "--scale": String(f(1 + p.lift * 0.045 - p.sink * 0.14)),
     "--cursor": p.drag ? "grabbing" : "grab",
   };
 }
 
-export function cardView(
-  c: CardDef,
-  sec: SectionId,
-  i: number,
-  p: Phys,
-  g: Geometry,
-  mat: MaterialView,
-): CardView {
-  const { w, h } = cardSize(c, g);
+export function cardView(c: CardDef, p: Phys, g: Geometry, mat: MaterialView): CardView {
+  const { w, h, step, pad } = cardSize(c, g);
   const face = c.mini ? FACE.mini : FACE.full;
   const foilOp = mat.foil * (0.22 + 0.6 * p.h);
   const hotOp = p.h * (mat.hotLobe ? 1 : 0);
   return {
     w,
     h,
+    step,
+    pad,
     radius: face.radius,
     foilHidden: foilOp < 0.01,
     hotHidden: hotOp < 0.01,
     vars: {
-      ...placement(p, sec, i, g),
+      ...placement(p, pad),
       "--w": px(w),
       "--h": px(h),
       "--persp": px(w * 4),

@@ -3,4 +3,5 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 pnpm lint
+pnpm test
 pnpm build >/dev/null

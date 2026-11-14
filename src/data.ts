@@ -77,8 +77,8 @@ export type SectionId = "full" | "anim" | "stack" | "mini";
 
 export const SECTION_IDS: readonly SectionId[] = ["full", "anim", "stack", "mini"];
 
-/** Sections whose rows reflow around a dragged card. */
-export const REFLOW_SECTIONS: ReadonlySet<SectionId> = new Set(["full", "anim", "mini"]);
+/** Sections whose deck starts as a single pile rather than one card per slot. */
+export const PILED_SECTIONS: ReadonlySet<SectionId> = new Set(["stack"]);
 
 const A = ASSETS;
 

@@ -11,7 +11,7 @@ import "@fontsource/ibm-plex-serif/500.css";
 import "@fontsource/ibm-plex-serif/600.css";
 import "./styles/index.css";
 
-import { DECKS, PRESETS, geometryFor, type Geometry } from "./data";
+import { PRESETS, geometryFor, type Geometry, type SectionId } from "./data";
 import {
   buildPresetChips,
   buildSections,
@@ -20,7 +20,8 @@ import {
   type CardRefs,
   type SectionRefs,
 } from "./dom";
-import { CardTable } from "./physics";
+import { Hold } from "./gesture";
+import { CardTable, type Pile, type Point } from "./physics";
 import { cardView, materialView, setVars } from "./view";
 
 const root = must(document, "[data-root]", HTMLElement);
@@ -31,27 +32,90 @@ const chips = buildPresetChips(must(root, "[data-presets]", HTMLElement));
 const presetLabel = must(root, "[data-preset-label]", HTMLElement);
 const retToggle = must(root, "[data-ret]", HTMLInputElement);
 const resetButton = must(root, "[data-reset]", HTMLButtonElement);
+const cardById = new Map(cards.map((c) => [c.def.id, c]));
 
-/** Mutable loop state: the current geometry and the pending animation frame. */
-const live: { geo: Geometry; raf: number } = { geo: geometryFor(window.innerWidth), raf: 0 };
+/** A finger resting on or sliding along a pile, before it has taken a card. */
+interface TouchScrub {
+  readonly pointerId: number;
+  readonly pile: Pile;
+  readonly el: HTMLElement;
+  readonly hold: Hold;
+  timer: number;
+  last: PointerEvent;
+}
 
-/** Records each free card's home centre in root layout coordinates (transforms ignored). */
+/** Mutable loop state: geometry, the pending frame, the laid-out pile version, a touch scrub. */
+const live: {
+  geo: Geometry;
+  raf: number;
+  laidOut: number;
+  scrub: TouchScrub | undefined;
+} = { geo: geometryFor(window.innerWidth), raf: 0, laidOut: -1, scrub: undefined };
+
+/** Offset of `el` from the root's padding box, in layout px (transforms ignored). */
+function layoutPos(el: HTMLElement): Point {
+  let x = 0;
+  let y = 0;
+  let cur: Element | null = el;
+  while (cur !== root && cur instanceof HTMLElement) {
+    x += cur.offsetLeft;
+    y += cur.offsetTop;
+    cur = cur.offsetParent;
+  }
+  return { x, y };
+}
+
+/**
+ * Records each card's home centre and each row's extent in root layout coordinates. A card
+ * whose home moved (rows collapsing, a resize) is re-anchored so it glides rather than jumps.
+ */
 function measure(): void {
   const rr = root.getBoundingClientRect();
   table.sc = (root.offsetWidth ? rr.width / root.offsetWidth : 1) || 1;
-  for (const slot of root.querySelectorAll<HTMLElement>("[data-card]")) {
-    const id = slot.dataset.card;
-    if (!id) continue;
-    let x = 0;
-    let y = 0;
-    let el: Element | null = slot;
-    while (el !== root && el instanceof HTMLElement) {
-      x += el.offsetLeft;
-      y += el.offsetTop;
-      el = el.offsetParent;
-    }
-    table.homes.set(id, { x: x + slot.offsetWidth / 2, y: y + slot.offsetHeight / 2 });
+  for (const c of cards) {
+    const at = layoutPos(c.slot);
+    const home = { x: at.x + c.slot.offsetWidth / 2, y: at.y + c.slot.offsetHeight / 2 };
+    const old = table.homes.get(c.def.id);
+    if (old) table.shiftHome(c.def.id, home.x - old.x, home.y - old.y);
+    table.homes.set(c.def.id, home);
   }
+  for (const s of sections) {
+    const at = layoutPos(s.row);
+    table.rows.set(s.id, { left: at.x, right: at.x + s.row.clientWidth });
+  }
+}
+
+const hasPile = (sec: SectionId): boolean => table.piles[sec].some((p) => p.ids.length > 1);
+
+/**
+ * Sizes each row to the slots in use, with lift headroom while it holds a pile. Measures
+ * twice: once for the headroom, once more after the row heights move the sections below.
+ */
+function relayout(): void {
+  for (const s of sections) {
+    const meta = table.meta.get(CardTable.slotId(s.id, 0) ?? "");
+    setVars(s.row, { "--row-pad": `${String(meta && hasPile(s.id) ? meta.pad : 0)}px` });
+  }
+  measure();
+  for (const s of sections) {
+    const top = layoutPos(s.row).y + s.row.clientTop;
+    const pad = Number(getComputedStyle(s.row).paddingBlockStart.replace("px", "")) || 0;
+    let bottom = top + pad;
+    for (let k = 0; k < table.used(s.id); k += 1) {
+      const id = CardTable.slotId(s.id, k) ?? "";
+      const home = table.homes.get(id);
+      const meta = table.meta.get(id);
+      if (home && meta) bottom = Math.max(bottom, home.y + meta.h / 2);
+    }
+    setVars(s.row, { "--row-h": `${String(Math.round(bottom - top - pad))}px` });
+  }
+  measure();
+}
+
+/** Pointer position in root layout coordinates. */
+function toLayout(e: PointerEvent): Point {
+  const rr = root.getBoundingClientRect();
+  return { x: (e.clientX - rr.left) / table.sc, y: (e.clientY - rr.top) / table.sc };
 }
 
 function sectionNote(s: SectionRefs): string {
@@ -64,8 +128,8 @@ function sectionNote(s: SectionRefs): string {
     }
     case "stack": {
       return live.geo.small
-        ? "drag a finger across the pile"
-        : "move across the pile; each card lifts in turn";
+        ? "slide a finger along the pile to fan it; hold to take a card"
+        : "hover to fan the pile; press to take the lifted card";
     }
     case "mini": {
       return `same shape · ${String(live.geo.mw)} × ${String(live.geo.mh)} · glyph faces`;
@@ -73,27 +137,31 @@ function sectionNote(s: SectionRefs): string {
   }
 }
 
+function labelOf(id: string): string {
+  return cardById.get(id)?.def.label ?? id;
+}
+
+/** Readout of a section's piles: the card pointed at in an open pile, else the pile sizes. */
+function pileLabel(sec: SectionId): string {
+  const piles = table.piles[sec].filter((p) => p.ids.length > 1);
+  const open = piles.find((p) => p.open);
+  if (open) {
+    const ai = Math.round(open.fs);
+    const id = open.ids[ai];
+    if (id) return `${String(ai + 1)} / ${String(open.ids.length)} · ${labelOf(id)}`;
+  }
+  const sizes = piles.map((p) => String(p.ids.length));
+  return sizes.length === 1 ? `pile of ${sizes.join("")}` : `piles of ${sizes.join(", ")}`;
+}
+
 function renderSections(): void {
-  const n = DECKS.stack.length;
-  const st = table.stack;
   for (const s of sections) {
     s.note.textContent = sectionNote(s);
-    if (s.id === "stack") {
-      setVars(s.row, {
-        "--pile-w": `${String(live.geo.w + (n - 1) * live.geo.step)}px`,
-        "--pile-h": `${String(live.geo.h + live.geo.liftPad + 6)}px`,
-      });
-      const ai = Math.round(st.fs);
-      const top = DECKS.stack[ai];
-      if (s.stackLabel)
-        s.stackLabel.textContent =
-          top && st.active
-            ? `${String(ai + 1)} / ${String(n)} · ${top.label}`
-            : `${String(n)} cards`;
-    } else {
-      const gap = s.id === "mini" ? live.geo.miniGap : live.geo.gap;
-      setVars(s.row, { "--row-gap": `${String(gap)}px` });
-    }
+    const gap = s.id === "mini" ? live.geo.miniGap : live.geo.gap;
+    setVars(s.row, { "--row-gap": `${String(gap)}px` });
+    const isShown = hasPile(s.id);
+    s.stackLabel.hidden = !isShown;
+    if (isShown) s.stackLabel.textContent = pileLabel(s.id);
   }
 }
 
@@ -111,9 +179,10 @@ function renderControls(): void {
 
 function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>): void {
   const p = table.ph(c.def.id);
-  const v = cardView(c.def, c.sec, c.i, p, live.geo, mat);
-  table.meta.set(c.def.id, { sec: c.sec, w: v.w, h: v.h, stack: c.sec === "stack", i: c.i });
+  const v = cardView(c.def, p, live.geo, mat);
+  table.meta.set(c.def.id, { sec: c.sec, w: v.w, h: v.h, step: v.step, pad: v.pad });
   setVars(c.slot, v.vars);
+  c.slot.toggleAttribute("data-pile", p.pile);
   c.grain.hidden = mat.grainHidden;
   c.foil.hidden = v.foilHidden;
   c.hot.hidden = v.hotHidden;
@@ -137,71 +206,183 @@ function render(): void {
 
 function kick(): void {
   if (live.raf) return;
-  live.raf = requestAnimationFrame(() => {
+  live.raf = requestAnimationFrame((now) => {
     live.raf = 0;
-    const isActive = table.tick();
+    if (live.laidOut !== table.version) {
+      live.laidOut = table.version;
+      relayout();
+    }
+    const isActive = table.tick(now);
     render();
     if (isActive) kick();
   });
 }
 
-const slotRect = (e: Event): DOMRect | undefined =>
-  (e.currentTarget as HTMLElement | null)?.parentElement?.getBoundingClientRect();
+const slotRect = (el: HTMLElement): DOMRect | undefined =>
+  el.parentElement?.getBoundingClientRect();
 
-function wireFreeCard(c: CardRefs): void {
+/** Starts dragging card `id` with pointer `e`, moving pointer capture onto that card. */
+function startDrag(id: string, e: PointerEvent): void {
+  const c = cardById.get(id);
+  const r = c && slotRect(c.card);
+  if (!c || !r) return;
+  table.down(id, e, r);
+  try {
+    c.card.setPointerCapture(e.pointerId);
+  } catch {
+    // The pointer may already be gone (e.g. a released touch); dragging still works.
+  }
+}
+
+/** Takes the card the pile points at out of the pile and starts dragging it. */
+function takeFromPile(pile: Pile, e: PointerEvent): void {
+  const ref = table.pileOf(pile.ids[0] ?? "");
+  const id = ref && table.pickTarget(ref);
+  if (id === undefined) return;
+  table.pull(id);
+  startDrag(id, e);
+  kick();
+}
+
+function endScrub(): void {
+  const sc = live.scrub;
+  if (!sc) return;
+  clearTimeout(sc.timer);
+  sc.pile.open = false;
+  live.scrub = undefined;
+  kick();
+}
+
+function armHold(sc: TouchScrub): void {
+  clearTimeout(sc.timer);
+  sc.timer = setTimeout(() => {
+    if (live.scrub !== sc) return;
+    live.scrub = undefined;
+    if ("vibrate" in navigator) navigator.vibrate(12);
+    takeFromPile(sc.pile, sc.last);
+  }, sc.hold.remaining(performance.now()));
+}
+
+/** A touch or pen press on a pile: fan it and point, and take the card on a hold. */
+function startScrub(id: string, el: HTMLElement, e: PointerEvent): void {
+  const ref = table.pileOf(id);
+  if (!ref || live.scrub) return;
+  try {
+    el.setPointerCapture(e.pointerId);
+  } catch {
+    // Without capture the scrub ends when the finger leaves this card.
+  }
+  const hold = new Hold();
+  hold.start(e.clientX, e.clientY, e.timeStamp);
+  const sc: TouchScrub = { pointerId: e.pointerId, pile: ref.pile, el, hold, timer: 0, last: e };
+  live.scrub = sc;
+  const at = toLayout(e);
+  table.closePiles(ref.pile);
+  table.scrub(ref, at.x, at.y);
+  armHold(sc);
+  kick();
+}
+
+function isScrubMove(e: PointerEvent): boolean {
+  const sc = live.scrub;
+  if (sc?.pointerId !== e.pointerId) return false;
+  sc.last = e;
+  const ref = table.pileOf(sc.pile.ids[0] ?? "");
+  if (ref) {
+    const at = toLayout(e);
+    table.scrub(ref, at.x, at.y);
+  }
+  if (sc.hold.move(e.clientX, e.clientY, e.timeStamp)) armHold(sc);
+  kick();
+  return true;
+}
+
+/**
+ * A new primary pointer means every earlier pointer is up, so a scrub or drag still open from
+ * one whose release never arrived is stale; close it rather than let it block this press.
+ */
+function clearStale(e: PointerEvent): void {
+  if (!e.isPrimary) return;
+  if (live.scrub && live.scrub.pointerId !== e.pointerId) endScrub();
+  const id = table.dragId;
+  if (id !== undefined && table.ph(id).pid !== e.pointerId) table.end(id, true, false);
+}
+
+function onCardDown(id: string, el: HTMLElement, e: PointerEvent): void {
+  if (e.button !== 0 && e.pointerType === "mouse") return;
+  clearStale(e);
+  measure();
+  if (table.isPiled(id)) {
+    if (e.pointerType === "mouse") {
+      e.preventDefault();
+      const ref = table.pileOf(id);
+      if (!ref) return;
+      const at = toLayout(e);
+      table.scrub(ref, at.x, at.y);
+      takeFromPile(ref.pile, e);
+    } else startScrub(id, el, e);
+    return;
+  }
+  startDrag(id, e);
+  if (e.pointerType === "mouse") e.preventDefault();
+  kick();
+}
+
+function onCardMove(id: string, el: HTMLElement, e: PointerEvent): void {
+  if (isScrubMove(e)) return;
+  const p = table.ph(id);
+  if (p.drag) {
+    if (e.pointerId !== p.pid) return;
+    table.dragMove(id, e);
+  } else {
+    // Piles take mouse hover through the window listener, by geometry.
+    if (e.pointerType !== "mouse" || p.pile) return;
+    const r = slotRect(el);
+    if (!r) return;
+    if (!p.hover) measure();
+    table.hoverMove(id, e, r);
+  }
+  kick();
+}
+
+function onCardEnd(id: string, el: HTMLElement, e: PointerEvent, wasCancelled: boolean): void {
+  if (live.scrub?.pointerId === e.pointerId) {
+    endScrub();
+    return;
+  }
+  const p = table.ph(id);
+  if (!p.drag || e.pointerId !== p.pid) return;
+  const r = slotRect(el);
+  const isOver =
+    e.pointerType === "mouse" &&
+    r !== undefined &&
+    e.clientX >= r.left &&
+    e.clientX <= r.right &&
+    e.clientY >= r.top &&
+    e.clientY <= r.bottom;
+  table.end(id, wasCancelled, isOver);
+  try {
+    el.releasePointerCapture(e.pointerId);
+  } catch {
+    // Capture is already released when the pointer was cancelled.
+  }
+  kick();
+}
+
+function wireCard(c: CardRefs): void {
   const id = c.def.id;
   const el = c.card;
   el.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 && e.pointerType === "mouse") return;
-    measure();
-    const r = slotRect(e);
-    if (!r) return;
-    table.down(id, e, r);
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch {
-      // The pointer may already be gone (e.g. a released touch); dragging still works.
-    }
-    if (e.pointerType === "mouse") e.preventDefault();
-    kick();
+    onCardDown(id, el, e);
   });
   el.addEventListener("pointermove", (e) => {
-    const p = table.ph(id);
-    if (p.drag) {
-      if (e.pointerId !== p.pid) return;
-      table.dragMove(id, e);
-    } else {
-      if (e.pointerType !== "mouse") return;
-      const r = slotRect(e);
-      if (!r) return;
-      if (!p.hover) measure();
-      table.hoverMove(id, e, r);
-    }
-    kick();
+    onCardMove(id, el, e);
   });
-  const end = (e: PointerEvent, wasCancelled: boolean): void => {
-    if (!table.ph(id).drag) return;
-    const r = slotRect(e);
-    const isOver =
-      e.pointerType === "mouse" &&
-      r !== undefined &&
-      e.clientX >= r.left &&
-      e.clientX <= r.right &&
-      e.clientY >= r.top &&
-      e.clientY <= r.bottom;
-    table.end(id, wasCancelled, isOver);
-    try {
-      el.releasePointerCapture(e.pointerId);
-    } catch {
-      // Capture is already released when the pointer was cancelled.
-    }
-    kick();
-  };
   el.addEventListener("pointerup", (e) => {
-    end(e, false);
+    onCardEnd(id, el, e, false);
   });
   el.addEventListener("pointercancel", (e) => {
-    end(e, true);
+    onCardEnd(id, el, e, true);
   });
   el.addEventListener("pointerleave", () => {
     if (table.ph(id).drag) return;
@@ -209,62 +390,40 @@ function wireFreeCard(c: CardRefs): void {
     kick();
   });
   el.addEventListener("dblclick", () => {
+    if (table.isPiled(id)) return;
     table.sendHome(id);
     kick();
   });
+  // Touch long-press would open the context menu mid-drag; the mouse keeps its menu.
+  el.addEventListener("contextmenu", (e) => {
+    if (!(e instanceof PointerEvent) || e.pointerType !== "mouse") e.preventDefault();
+  });
 }
 
-function wireStack(row: HTMLElement): void {
-  const st = table.stack;
-  const update = (e: PointerEvent): void => {
-    const r = row.getBoundingClientRect();
-    const sc = (row.offsetWidth ? r.width / row.offsetWidth : 1) || 1;
-    table.stackPointer(
-      (e.clientX - r.left) / sc,
-      (e.clientY - r.top) / sc,
-      live.geo.step,
-      live.geo.liftPad,
-      live.geo.h,
-    );
-    kick();
-  };
-  row.addEventListener("pointerdown", (e) => {
-    st.touch = e.pointerType !== "mouse";
-    try {
-      row.setPointerCapture(e.pointerId);
-    } catch {
-      // Without capture the pile still follows the pointer while it stays over the row.
+/** Mouse hover over piles, by geometry: an open fan is wider than the card that opened it. */
+function wirePileHover(): void {
+  addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "mouse" || table.dragId !== undefined) return;
+    const at = toLayout(e);
+    const ref = table.pileAt(at.x, at.y);
+    const wasOpen = ref?.pile.open;
+    table.closePiles(ref?.pile);
+    if (ref) {
+      if (!wasOpen) measure();
+      table.scrub(ref, at.x, at.y);
     }
-    update(e);
-  });
-  row.addEventListener("pointermove", (e) => {
-    if (e.pointerType === "mouse" || st.touch) update(e);
-  });
-  const release = (e: PointerEvent): void => {
-    if (e.pointerType === "mouse") return;
-    st.active = false;
-    st.touch = false;
     kick();
-  };
-  row.addEventListener("pointerup", release);
-  row.addEventListener("pointercancel", release);
-  row.addEventListener("pointerleave", () => {
-    if (st.touch) return;
-    st.active = false;
+  });
+  document.documentElement.addEventListener("pointerleave", () => {
+    if (live.scrub) return;
+    table.closePiles();
     kick();
   });
 }
 
 function wire(): void {
-  for (const c of cards) {
-    if (c.sec !== "stack") wireFreeCard(c);
-    // Touch long-press would open the context menu mid-drag; the mouse keeps its menu.
-    c.card.addEventListener("contextmenu", (e) => {
-      if (!(e instanceof PointerEvent) || e.pointerType !== "mouse") e.preventDefault();
-    });
-  }
-  const pile = sections.find((s) => s.id === "stack");
-  if (pile) wireStack(pile.row);
+  for (const c of cards) wireCard(c);
+  wirePileHover();
   for (const { id, el } of chips) {
     el.addEventListener("click", () => {
       table.pickPreset(id);
@@ -282,8 +441,8 @@ function wire(): void {
     render();
   });
   resetButton.addEventListener("click", () => {
+    endScrub();
     table.resetAll();
-    measure();
     kick();
   });
   // The geometry is keyed to window.innerWidth (as in the export), not to an element's size.
@@ -294,10 +453,14 @@ function wire(): void {
 function onResize(): void {
   live.geo = geometryFor(window.innerWidth);
   render();
-  requestAnimationFrame(measure);
+  live.laidOut = -1;
+  kick();
 }
 
 wire();
 onResize();
-// Fonts and images settle layout after the first frame; re-measure once they have.
-setTimeout(measure, 300);
+// Fonts and images settle layout after the first frame; lay out again once they have.
+setTimeout(() => {
+  live.laidOut = -1;
+  kick();
+}, 300);

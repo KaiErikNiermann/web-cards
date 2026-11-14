@@ -53,20 +53,16 @@
     }
   }
 
+  /* Rows collapse to the slots in use (--row-h) and, while they hold a pile, reserve the
+     headroom a fanned card lifts into (--row-pad). Both are set from the pile count;
+     no transition, because the cards measure their homes from this layout. */
   .card-row {
     display: flex;
     flex-wrap: wrap;
     gap: var(--row-gap);
-  }
-
-  .card-pile {
-    block-size: var(--pile-h);
-    flex: none;
-    inline-size: var(--pile-w);
-    max-inline-size: 100%;
-    position: relative;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: pan-y;
+    align-content: flex-start;
+    block-size: var(--row-h, auto);
+    padding-block-start: var(--row-pad, 0);
   }
 
   .slot {
@@ -77,12 +73,6 @@
     position: relative;
     transform: translate3d(var(--tx), var(--ty), 0);
     z-index: var(--z);
-  }
-
-  .slot[data-pile] {
-    inset-block-start: var(--top);
-    inset-inline-start: var(--left);
-    position: absolute;
   }
 
   .card {
@@ -107,14 +97,11 @@
     will-change: transform;
   }
 
-  .card-pile .card {
+  .slot[data-pile] .card {
     --_shadow:
       -3px 0 8px color-mix(in srgb, var(--shade) 35%, transparent),
       0 calc(2px + var(--lift) * 16px) calc(6px + var(--lift) * 28px)
         color-mix(in srgb, var(--shade) calc(35% + var(--lift) * 20%), transparent);
-
-    cursor: default;
-    touch-action: pan-y;
   }
 
   .clip {

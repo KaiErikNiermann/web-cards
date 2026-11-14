@@ -48,8 +48,8 @@ export interface SectionRefs {
   readonly id: SectionId;
   readonly note: HTMLElement;
   readonly row: HTMLElement;
-  /** The live pile readout; only the stack section has one. */
-  readonly stackLabel: HTMLElement | undefined;
+  /** The live pile readout, shown while the section holds a pile. */
+  readonly stackLabel: HTMLElement;
 }
 
 const TITLES: Readonly<Record<SectionId, string>> = {
@@ -95,8 +95,7 @@ function buildCard(c: CardDef, sec: SectionId, i: number): CardRefs {
   const slot = must(frag, ".slot", HTMLElement);
   const card = must(frag, ".card", HTMLElement);
   const edge = must(frag, "[data-edge]", HTMLElement);
-  if (sec === "stack") slot.dataset.pile = "";
-  else slot.dataset.card = c.id;
+  slot.dataset.card = c.id;
   card.setAttribute("aria-label", c.label);
   fillFace(must(frag, "[data-face]", HTMLElement), c);
   if (c.fx === "live") edge.before(clone("fx-live"));
@@ -133,18 +132,16 @@ export function buildSections(container: HTMLElement): Built {
     const frag = clone("tpl-section");
     must(frag, "[data-title]", HTMLElement).textContent = TITLES[id];
     const row = must(frag, "[data-row]", HTMLElement);
-    row.className = id === "stack" ? "card-pile" : "card-row";
+    row.className = "card-row";
     const deck = DECKS[id];
     for (const [i, c] of deck.entries()) {
       const refs = buildCard(c, id, i);
       row.append(refs.slot);
       cards.push(refs);
     }
-    const stackLabel: HTMLElement | undefined = must(frag, "[data-stack-label]", HTMLElement);
-    if (id === "stack") stackLabel.hidden = false;
-    else stackLabel.remove();
+    const stackLabel = must(frag, "[data-stack-label]", HTMLElement);
     const note = must(frag, "[data-note]", HTMLElement);
-    sections.push({ id, note, row, stackLabel: id === "stack" ? stackLabel : undefined });
+    sections.push({ id, note, row, stackLabel });
     footer.before(frag);
   }
   return { sections, cards };
