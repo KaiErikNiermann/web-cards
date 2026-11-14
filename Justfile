@@ -48,6 +48,10 @@ test:
 bench *args:
     pnpm bench {{ args }}
 
+# Face backends on a phone: fidelity, cross-browser consistency, speed and memory
+matrix *flags: build
+    uv run bench/matrix.py dist {{ flags }}
+
 # Compare face snapshots with the browser's rendering (target: phone, firefox, chromium)
 parity target="phone" *flags: build
     uv run bench/parity.py dist --target {{ target }} {{ flags }}

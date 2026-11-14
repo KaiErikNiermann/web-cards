@@ -24,6 +24,8 @@
          reference too. */
       .face img, .face .par, .face .ember { visibility: hidden; }
       .fx { position: absolute; inset: 0; box-sizing: border-box; padding: 10px; background: #f3efe6; color: #222; font: 14px/1.4 "IBM Plex Sans", sans-serif; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+      .parity-drawable { position: fixed; inset: 0 auto auto 0; inline-size: 220px; block-size: 308px; opacity: 0; pointer-events: none; }
+      .parity-drawable > [drawable] { inline-size: 220px; block-size: 308px; position: relative; }
       .serif { font-family: "IBM Plex Serif", serif; }
       .mono { font-family: "IBM Plex Mono", monospace; }
       .first-letter::first-letter { float: left; font: 600 34px/0.9 "IBM Plex Serif", serif; margin-inline-end: 4px; color: #c33; }

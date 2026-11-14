@@ -1,9 +1,9 @@
-"""Shared plumbing for scripts that drive Firefox for Android over USB.
+"""Shared plumbing for scripts that drive Firefox or Chrome for Android over USB.
 
 `serve` serves a directory over HTTP from this host for the length of a `with` block;
-`reverse` makes a host port reachable on the device as localhost; `android_firefox` starts a
-WebDriver session in Firefox for Android, answering its start-up prompts, and keeps the screen
-on while it runs.
+`reverse` makes a host port reachable on the device as localhost, `forward` the other way
+round (Chrome's DevTools socket); `android_firefox` starts a WebDriver session in Firefox for
+Android, answering its start-up prompts, and keeps the screen on while it runs.
 """
 
 import functools
@@ -48,6 +48,25 @@ def reverse(serial: str, port: int) -> Iterator[None]:
         yield
     finally:
         adb(serial, "reverse", "--remove", f"tcp:{port}", check=False)
+
+
+@contextmanager
+def forward(serial: str, port: int, remote: str) -> Iterator[None]:
+    """Forwards this host's localhost:`port` to `remote` on the device (`localabstract:NAME`)."""
+    adb(serial, "forward", f"tcp:{port}", remote)
+    try:
+        yield
+    finally:
+        adb(serial, "forward", "--remove", f"tcp:{port}", check=False)
+
+
+CHROME = "com.android.chrome"
+CHROME_DEVTOOLS = "localabstract:chrome_devtools_remote"
+
+
+def start_chrome(serial: str) -> None:
+    """Brings Chrome for Android to the front, so its DevTools socket is up."""
+    adb(serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "about:blank", "-n", f"{CHROME}/com.google.android.apps.chrome.Main")
 
 
 @contextmanager

@@ -25,8 +25,11 @@ snapshot scale further (3 for the showcase's sharper copy); the snapshot is then
 the reference before comparing. --baker canvas uses the html2canvas baker (?glsrc=canvas).
 --baker build compares the phone's own rendering with what the build bake would make of the
 fixture: its screenshot in headless Chromium at the bake's scale, resized to the reference.
+--baker drawable rasterizes through HTML-in-Canvas (drawElementImage), in Chromium targets.
+--target phone-chrome drives Chrome for Android over its DevTools socket.
 """
 
+import atexit
 import base64
 import enum
 import html
@@ -41,14 +44,15 @@ from typing import Annotated, Protocol
 
 import numpy as np
 import typer
-from device import android_firefox, reverse, serve
+from device import CHROME_DEVTOOLS, android_firefox, forward, reverse, serve, start_chrome
 from numpy.typing import NDArray
 from PIL import Image
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Page, Playwright, sync_playwright
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
 
 PORT = 18771
+DEVTOOLS_PORT = 9333
 PAGE_BG = (20, 22, 28)
 TOLERANCE = 48
 ALIGN = 4
@@ -58,6 +62,7 @@ FACE = '[data-fixture="{}"] .slot'
 
 class Target(enum.StrEnum):
     PHONE = "phone"
+    PHONE_CHROME = "phone-chrome"
     FIREFOX = "firefox"
     CHROMIUM = "chromium"
 
@@ -66,6 +71,7 @@ class Baker(enum.StrEnum):
     SVG = "svg"
     CANVAS = "canvas"
     BUILD = "build"
+    DRAWABLE = "drawable"
 
 
 # Device px per artboard px of the build bake (scripts/bake-faces.ts).
@@ -75,7 +81,7 @@ BAKE_SCALE = 4
 class Browser(Protocol):
     def goto(self, url: str) -> None: ...
     def js(self, expr: str) -> object: ...
-    def snap(self, fixture: str, scale: float) -> str: ...
+    def snap(self, fixture: str, scale: float, fn: str = "snap") -> str: ...
     def shot(self, fixture: str) -> bytes: ...
 
 
@@ -90,11 +96,11 @@ class SeleniumBrowser:
     def js(self, expr: str) -> object:
         return self.d.execute_script(f"return {expr};")
 
-    def snap(self, fixture: str, scale: float) -> str:
+    def snap(self, fixture: str, scale: float, fn: str = "snap") -> str:
         return str(
             self.d.execute_async_script(
                 "const done = arguments[arguments.length - 1];"
-                "parity.snap(arguments[0], arguments[1]).then(done, (e) => done('ERR ' + e));",
+                f"parity.{fn}(arguments[0], arguments[1]).then(done, (e) => done('ERR ' + e));",
                 fixture,
                 scale,
             )
@@ -117,8 +123,8 @@ class PlaywrightBrowser:
     def js(self, expr: str) -> object:
         return self.page.evaluate(expr)
 
-    def snap(self, fixture: str, scale: float) -> str:
-        return str(self.page.evaluate("([id, s]) => parity.snap(id, s).catch((e) => 'ERR ' + e)", [fixture, scale]))
+    def snap(self, fixture: str, scale: float, fn: str = "snap") -> str:
+        return str(self.page.evaluate(f"([id, s]) => parity.{fn}(id, s).catch((e) => 'ERR ' + e)", [fixture, scale]))
 
     def shot(self, fixture: str) -> bytes:
         loc = self.page.locator(FACE.format(fixture))
@@ -126,22 +132,46 @@ class PlaywrightBrowser:
         return loc.screenshot()
 
 
+_playwright: list[Playwright] = []
+
+
+def playwright() -> Playwright:
+    """One Playwright for the whole run: its sync API cannot be started twice at once."""
+    if not _playwright:
+        _playwright.append(sync_playwright().start())
+        atexit.register(_playwright[0].stop)
+    return _playwright[0]
+
+
 @contextmanager
 def browser(target: Target, serial: str | None, dpr: float) -> Iterator[Browser]:
+    if target in (Target.PHONE, Target.PHONE_CHROME) and serial is None:
+        raise typer.BadParameter("--serial is required for the phone")
     if target is Target.PHONE:
-        if serial is None:
-            raise typer.BadParameter("--serial is required for the phone")
+        assert serial is not None
         with reverse(serial, PORT), android_firefox(serial) as driver:
             yield SeleniumBrowser(driver)
         return
-    with sync_playwright() as pw:
-        kind = pw.firefox if target is Target.FIREFOX else pw.chromium
-        b = kind.launch()
-        try:
-            ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=dpr)
-            yield PlaywrightBrowser(ctx.new_page())
-        finally:
-            b.close()
+    if target is Target.PHONE_CHROME:
+        assert serial is not None
+        start_chrome(serial)
+        time.sleep(2)
+        with reverse(serial, PORT), forward(serial, DEVTOOLS_PORT, CHROME_DEVTOOLS):
+            b = playwright().chromium.connect_over_cdp(f"http://127.0.0.1:{DEVTOOLS_PORT}")
+            page = b.contexts[0].new_page()
+            try:
+                yield PlaywrightBrowser(page)
+            finally:
+                page.close()
+        return
+    pw = playwright()
+    kind = pw.firefox if target is Target.FIREFOX else pw.chromium
+    b = kind.launch()
+    try:
+        ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=dpr)
+        yield PlaywrightBrowser(ctx.new_page())
+    finally:
+        b.close()
 
 
 @dataclass(frozen=True)
@@ -206,9 +236,10 @@ def heat(ref: NDArray[np.uint8], mask: NDArray[np.bool_]) -> Image.Image:
     return Image.fromarray(out)
 
 
-def snapshot_png(b: Browser, fixture: str, scale: float) -> bytes:
-    """The fixture rasterized by the renderer's atlas in browser `b`."""
-    data = b.snap(fixture, scale)
+def snapshot_png(b: Browser, fixture: str, scale: float, fn: str = "snap") -> bytes:
+    """The fixture rasterized in browser `b` by the renderer's atlas (`snap`) or through
+    HTML-in-Canvas (`snapDrawable`)."""
+    data = b.snap(fixture, scale, fn)
     if not data.startswith("data:image/png;base64,"):
         raise RuntimeError(f"{fixture}: snapshot failed: {data[:200]}")
     return base64.b64decode(data.split(",", 1)[1])
@@ -268,8 +299,10 @@ def main(
     run_dir = out / name
     run_dir.mkdir(parents=True, exist_ok=True)
     query = f"?k={k:g}" + ("&glsrc=canvas" if baker is Baker.CANVAS else "")
-    if baker is Baker.BUILD and target is not Target.PHONE:
-        raise typer.BadParameter("--baker build compares a device with desktop Chromium; use --target phone")
+    if baker is Baker.BUILD and target not in (Target.PHONE, Target.PHONE_CHROME):
+        raise typer.BadParameter("--baker build compares a device with desktop Chromium; use a phone target")
+    if baker is Baker.DRAWABLE and target in (Target.PHONE, Target.FIREFOX):
+        raise typer.BadParameter("--baker drawable needs HTML-in-Canvas (Chromium): use phone-chrome or chromium")
     with ExitStack() as stack:
         base = stack.enter_context(serve(dist, PORT))
         b = stack.enter_context(browser(target, serial, dpr))
@@ -290,7 +323,7 @@ def main(
             snap = (
                 (lambda f=fixture, w=builder: w.shot(f))
                 if builder is not None
-                else (lambda f=fixture, s=scale: snapshot_png(b, f, s))
+                else (lambda f=fixture, s=scale: snapshot_png(b, f, s, "snapDrawable" if baker is Baker.DRAWABLE else "snap"))
             )
             r = compare(b, fixture, snap, run_dir)
             results.append(r)

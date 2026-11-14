@@ -6,6 +6,7 @@ import "./fonts";
 import "./styles/index.css";
 
 import { FACE } from "./data";
+import { SHADER_DRAWN } from "./gl/bake";
 import { atlas } from "./gl/raster";
 
 const BOARD = FACE.full;
@@ -78,6 +79,40 @@ async function snap(id: string, scale: number): Promise<string> {
   return out.toDataURL("image/png");
 }
 
+/**
+ * Rasterizes fixture `id` the HTML-in-Canvas way (drawable.ts): a copy of the face in an
+ * invisible drawable canvas, drawn by the browser at `scale` device px per artboard px.
+ */
+async function snapDrawable(id: string, scale: number): Promise<string> {
+  const copy = faceOf(id).cloneNode(true);
+  if (!(copy instanceof HTMLElement)) throw new TypeError("parity: face copy is not an element");
+  const canvas = document.createElement("canvas");
+  canvas.className = "parity-drawable";
+  canvas.setAttribute("content", "drawable");
+  canvas.width = Math.round(BOARD.bw * scale);
+  canvas.height = Math.round(BOARD.bh * scale);
+  copy.setAttribute("drawable", "");
+  copy.style.setProperty("transform", "none");
+  for (const el of copy.querySelectorAll<HTMLElement>(SHADER_DRAWN)) el.style.setProperty("visibility", "hidden");
+  canvas.append(copy);
+  document.body.append(canvas);
+  const ctx = canvas.getContext("2d");
+  if (!ctx?.drawElementImage || !canvas.requestPaint) throw new Error("parity: no HTML-in-Canvas here");
+  const draw = ctx.drawElementImage.bind(ctx);
+  try {
+    await new Promise<void>((resolve) => {
+      canvas.onpaint = () => {
+        draw(copy, 0, 0, canvas.width, canvas.height);
+        resolve();
+      };
+      canvas.requestPaint?.();
+    });
+    return canvas.toDataURL("image/png");
+  } finally {
+    canvas.remove();
+  }
+}
+
 async function start(): Promise<void> {
   const main = document.querySelector<HTMLElement>("[data-fixtures]");
   if (!main) throw new Error("parity: no fixture list");
@@ -88,7 +123,7 @@ async function start(): Promise<void> {
   await addTemplates(main);
   await document.fonts.ready;
   const ids = [...main.querySelectorAll<HTMLElement>("[data-fixture]")].map((s) => s.dataset.fixture ?? "");
-  Object.assign(globalThis, { parity: { ids, k, board: BOARD, snap } });
+  Object.assign(globalThis, { parity: { ids, k, board: BOARD, snap, snapDrawable } });
   document.documentElement.dataset.parity = "ready";
 }
 
