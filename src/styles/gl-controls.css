@@ -1,0 +1,116 @@
+/* WebGL rendering: stand-ins for form controls in face snapshots (src/gl/controls.ts).
+   Firefox draws native controls blank or unthemed inside the SVG image a snapshot is, so the
+   snapshot's copy of a face gets plain elements drawn like the controls instead. Each one is
+   sized to the control's box; state comes in through data attributes and --_fill. */
+
+@layer components {
+  .gl-ctl {
+    --_accent: var(--ctl-accent);
+    --_fill: 0%;
+    --_bar: var(--_accent);
+
+    display: inline-block;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    position: relative;
+    vertical-align: middle;
+  }
+
+  .gl-ctl[data-kind="check"],
+  .gl-ctl[data-kind="radio"] {
+    background: var(--ctl-field);
+    border: var(--ctl-edge-w) solid var(--ctl-edge);
+    border-radius: var(--ctl-check-r);
+  }
+
+  .gl-ctl[data-kind="radio"] {
+    border-radius: var(--ctl-round);
+  }
+
+  .gl-ctl[data-kind="check"][data-on] {
+    background: var(--_accent) var(--ctl-check-mark) center / 100% no-repeat;
+    border-color: var(--_accent);
+  }
+
+  /* On a light accent the mark turns dark, as Firefox draws it. */
+  .gl-ctl[data-kind="check"][data-on][data-light] {
+    background-image: var(--ctl-check-mark-dark);
+  }
+
+  .gl-ctl[data-kind="radio"][data-on] {
+    background: radial-gradient(circle, var(--_accent) 0 36%, var(--ctl-field) 42%);
+    border-color: var(--_accent);
+  }
+
+  .gl-ctl[data-kind="meter"] {
+    --_bar: var(--ctl-meter);
+  }
+
+  .gl-ctl-track {
+    background: var(--ctl-track);
+    block-size: var(--ctl-track-h);
+    border: var(--ctl-edge-w) solid var(--ctl-track-edge);
+    border-radius: var(--ctl-bar-r);
+    box-sizing: border-box;
+    inset-block-start: calc(50% - var(--ctl-track-h) / 2);
+    inset-inline: 0;
+    overflow: hidden;
+    position: absolute;
+  }
+
+  .gl-ctl[data-kind="meter"] .gl-ctl-track {
+    block-size: 100%;
+    inset-block-start: 0;
+  }
+
+  .gl-ctl-fill {
+    display: block;
+    background: var(--_bar);
+    block-size: 100%;
+    inline-size: var(--_fill);
+  }
+
+  .gl-ctl-thumb {
+    background: var(--ctl-thumb);
+    block-size: var(--ctl-thumb-size);
+    border: var(--ctl-thumb-edge-w) solid var(--ctl-thumb-edge);
+    border-radius: var(--ctl-round);
+    box-sizing: border-box;
+    inline-size: var(--ctl-thumb-size);
+    inset-block-start: calc(50% - var(--ctl-thumb-size) / 2);
+    inset-inline-start: calc((100% - var(--ctl-thumb-size)) * var(--_at));
+    position: absolute;
+  }
+
+  /* Selects and text fields carry the control's own computed box, font and colours inline. */
+  .gl-ctl[data-field] {
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  /* The arrow of a select the page has not restyled (appearance: none). */
+  .gl-ctl[data-kind="select"][data-native] {
+    background-image: var(--ctl-chevron);
+    background-position: right var(--ctl-check-r) center;
+    background-repeat: no-repeat;
+    background-size: var(--ctl-chevron-size);
+  }
+
+  .gl-ctl[data-kind="listbox"] {
+    overflow: hidden;
+  }
+
+  .gl-ctl-option {
+    display: block;
+    overflow: hidden;
+    padding-block: var(--ctl-option-pad);
+    white-space: nowrap;
+  }
+
+  .gl-ctl-option[data-on] {
+    background: var(--ctl-option-on);
+    color: var(--ctl-option-on-ink);
+  }
+}

@@ -16,6 +16,7 @@ import { createContext, destroyContext, domToCanvas, type Options } from "modern
 import { FACE, type Geometry } from "../data";
 import type { CardRefs } from "../dom";
 import { artOf } from "./art";
+import { swapControls } from "./controls";
 import type { FaceImages, FaceSource } from "./faces";
 import { bind, LIVE_TEXT, specOf, type LiveText, type LiveTextSpec } from "./livetext";
 
@@ -189,6 +190,7 @@ export async function atlas(
   // elements still pair up with the face's.
   for (const { faceEl, cell } of cells) {
     copyScroll(faceEl, cell);
+    swapControls(cell);
     lockLines(cell);
     for (const el of cell.querySelectorAll("*")) if (isLeftOut(el)) el.remove();
   }

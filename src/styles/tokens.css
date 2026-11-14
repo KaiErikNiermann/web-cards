@@ -208,5 +208,30 @@
        spread; above and below also a lifted card's deeper shadow. */
     --gl-margin-block: 96px;
     --gl-margin-inline: 48px;
+
+    /* WebGL rendering: stand-ins for form controls in face snapshots (gl-controls.css), drawn
+       like Firefox for Android's own controls. accent-color overrides --ctl-accent. */
+    --ctl-accent: #4f5b7c;
+    --ctl-field: #fff;
+    --ctl-edge: #8f8f9d;
+    --ctl-edge-w: 1px;
+    --ctl-check-r: 3px;
+    --ctl-track: #e1e1e6;
+    --ctl-track-h: 6px;
+    --ctl-track-edge: #b8b8c2;
+    --ctl-bar-r: 999px;
+    --ctl-round: 50%;
+    --ctl-thumb: #5b6170;
+    --ctl-thumb-edge: #fff;
+    --ctl-thumb-size: 20px;
+    --ctl-thumb-edge-w: 2px;
+    --ctl-meter: #00a85a;
+    --ctl-option-pad: 2px;
+    --ctl-option-on: #4f5b7c;
+    --ctl-option-on-ink: #fff;
+    --ctl-check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --ctl-check-mark-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231a1408' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --ctl-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23333' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --ctl-chevron-size: 12px;
   }
 }
