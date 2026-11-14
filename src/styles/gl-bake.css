@@ -1,0 +1,18 @@
+/* The build bake's stage (?bake, src/gl/bakestage.ts): faces and backs at their artboard
+   size, side by side, for a headless browser to screenshot. */
+
+@layer components {
+  .bake-stage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--bake-gap);
+    padding: var(--bake-gap);
+  }
+
+  .bake-cell {
+    block-size: var(--cell-h);
+    inline-size: var(--cell-w);
+    overflow: hidden;
+    position: relative;
+  }
+}

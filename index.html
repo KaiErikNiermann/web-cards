@@ -108,9 +108,10 @@
             <div class="layer hot" data-hot><div class="spot" data-hot-spot></div></div>
             <div class="layer edge" data-edge></div>
           </div>
-          <!-- The card back, turned away; shown when the showcase turns the card over -->
-          <div class="back" data-back aria-hidden="true">
-            <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-unit bg-(image:--back-pattern) bg-size-(--back-pattern-size) text-parchment">
+          <!-- The card back, turned away; shown when the showcase turns the card over. Baked at
+               build time for WebGL (data-bake, src/gl/bake.ts): one design on every device. -->
+          <div class="back" data-back data-bake="build" aria-hidden="true">
+            <div class="back-face flex flex-col items-center justify-center gap-1 bg-unit bg-(image:--back-pattern) bg-size-(--back-pattern-size) text-parchment">
               <div class="absolute inset-2 rounded-plate border border-unit-frame"></div>
               <span class="font-serif text-face-display leading-none">⚔︎</span>
               <span class="font-mono text-face-micro tracking-kicker text-unit-caption uppercase">web cards</span>
@@ -166,7 +167,7 @@
     </template>
 
     <template id="face-glyph">
-      <div class="absolute inset-0 flex flex-col items-center justify-center bg-paper text-glyph data-red:text-glyph-red" data-ink>
+      <div class="absolute inset-0 flex flex-col items-center justify-center bg-paper text-glyph data-red:text-glyph-red" data-ink data-bake="build">
         <span class="absolute start-2 top-1.75 font-serif text-face-small leading-none font-semibold" data-glyph></span>
         <span class="font-serif text-face-glyph leading-none font-semibold" data-glyph></span>
         <span class="suit font-serif text-face-display leading-none font-normal" data-suit></span>

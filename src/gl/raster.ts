@@ -17,6 +17,7 @@ import { FACE, type Geometry } from "../data";
 import type { CardRefs } from "../dom";
 import { artOf } from "./art";
 import { hideDomParts } from "./bake";
+import { bakedImage } from "./baked";
 import { swapControls } from "./controls";
 import type { FaceImages, FaceSource } from "./faces";
 import { bind, LIVE_TEXT, specOf, type LiveText, type LiveTextSpec } from "./livetext";
@@ -259,11 +260,21 @@ export function snapshotFaces(root: HTMLElement): FaceSource {
         const group = cards.filter((c) => (c.def.mini ?? false) === isMini);
         const board = isMini ? FACE.mini : FACE.full;
         const k = (isMini ? geo.mw : geo.w) / board.bw;
-        const entries = group.filter((c) => hasOverlay(c)).map((c) => ({ key: c.def.id, el: faceOf(c) }));
+        // Faces baked at build time (baked.ts) skip the snapshot.
+        const baked = new Map(
+          await Promise.all(
+            group.map(async (c) => [c.def.id, await bakedImage(faceOf(c).firstElementChild, board)] as const),
+          ),
+        );
+        const entries = group
+          .filter((c) => hasOverlay(c) && !baked.get(c.def.id))
+          .map((c) => ({ key: c.def.id, el: faceOf(c) }));
         const backEl = group[0]?.card.querySelector<HTMLElement>("[data-back]");
         const backKey = `${String(isMini)}|${String(k * dpr)}`;
         if (backEl && !backs.has(backKey)) {
           const backOf = async (): Promise<FaceImages["face"]> => {
+            const image = await bakedImage(backEl.firstElementChild, board);
+            if (image) return { source: image, uv: [0, 0, 1, 1] };
             const a = await atlas(root, [{ key: BACK, el: backEl }], board, k * dpr);
             return a.regions.get(BACK);
           };
@@ -276,8 +287,9 @@ export function snapshotFaces(root: HTMLElement): FaceSource {
         for (const c of group) {
           // In turn, so cards showing the same image at the same size share its bitmap.
           const art = await artOf(c, k, dpr);
+          const image = baked.get(c.def.id);
           out.set(c.def.id, {
-            face: faces.regions.get(c.def.id),
+            face: image ? { source: image, uv: [0, 0, 1, 1] } : faces.regions.get(c.def.id),
             art,
             back,
             live: faces.live.get(c.def.id) ?? [],

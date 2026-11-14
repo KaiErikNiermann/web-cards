@@ -501,6 +501,19 @@
     visibility: visible;
   }
 
+  /* The back's content is laid out at the artboard size and scaled to the card, like a face,
+     so its type fits small cards too. Outside a slot (a snapshot or bake cell sized to the
+     artboard) it fills its box. */
+  .back-face {
+    block-size: var(--bh, 100%);
+    inline-size: var(--bw, 100%);
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    position: absolute;
+    transform: scale(var(--face-k, 1));
+    transform-origin: 0 0;
+  }
+
   /* Cards off screen, buried in a closed pile, or on the page while a pile is fanned hold
      their animations still. */
   .slot[data-still] * {

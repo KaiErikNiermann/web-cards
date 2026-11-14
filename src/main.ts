@@ -144,6 +144,11 @@ const gl = new URLSearchParams(location.search).has("gl")
     })
   : undefined;
 
+// The build bake's stage (`?bake`, scripts/bake-faces.ts): faces marked data-bake="build".
+if (new URLSearchParams(location.search).has("bake")) {
+  void import("./gl/bakestage").then(async (m) => m.stageBuildBakes(cards));
+}
+
 const hasPile = (sec: SectionId): boolean => table.piles[sec].some((p) => p.ids.length > 1);
 
 /**

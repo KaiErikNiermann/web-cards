@@ -30,6 +30,9 @@ jobs:
       - run: pnpm lint:css
       - run: pnpm test
       - run: pnpm exec vite build
+      # Faces marked data-bake="build" are baked into images in headless Chromium.
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm bake
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
