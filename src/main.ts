@@ -40,7 +40,7 @@ interface TouchScrub {
   readonly pile: Pile;
   readonly el: HTMLElement;
   readonly hold: Hold;
-  timer: number;
+  timer: ReturnType<typeof setTimeout> | undefined;
   last: PointerEvent;
 }
 
@@ -274,7 +274,7 @@ function startScrub(id: string, el: HTMLElement, e: PointerEvent): void {
   }
   const hold = new Hold();
   hold.start(e.clientX, e.clientY, e.timeStamp);
-  const sc: TouchScrub = { pointerId: e.pointerId, pile: ref.pile, el, hold, timer: 0, last: e };
+  const sc: TouchScrub = { pointerId: e.pointerId, pile: ref.pile, el, hold, timer: undefined, last: e };
   live.scrub = sc;
   const at = toLayout(e);
   table.closePiles(ref.pile);

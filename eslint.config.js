@@ -39,6 +39,11 @@ export default defineConfig([
     },
   },
   {
+    // The benchmark runs in Node and drives a browser; it prints its report to the terminal.
+    files: ["bench/**/*.ts"],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ["**/*.css"],
     language: "css/css",
     plugins: { css },
