@@ -415,7 +415,9 @@ function clearStale(e: PointerEvent): void {
 /** A press that may turn out to be a tap (short, barely moving): it opens the showcase. */
 const taps: {
   press: { id: string; x: number; y: number; at: number; pointerId: number } | undefined;
-} = { press: undefined };
+  /** The pointer whose press closed the showcase: it does nothing else until it lifts. */
+  dismissing: number | undefined;
+} = { press: undefined, dismissing: undefined };
 const TAP_MS = 300;
 /** How long after opening the showcase the card is rasterized at its grown size. */
 const UPSCALE_AFTER_MS = 900;
@@ -439,7 +441,8 @@ function onTap(id: string): void {
     // A sharper copy for the grown card, once it has arrived: a snapshot on the main thread
     // mid-flight stalled the animation.
     setTimeout(() => {
-      if (showcase.id === id) gl?.upscale(id);
+      // Not while it flies home: the snapshot stalls the main thread for a frame or more.
+      if (showcase.id === id && showcase.isOpen) gl?.upscale(id);
     }, UPSCALE_AFTER_MS);
   }
   kick();
@@ -447,6 +450,9 @@ function onTap(id: string): void {
 
 function onCardDown(id: string, el: HTMLElement, e: PointerEvent): void {
   if (e.button !== 0 && e.pointerType === "mouse") return;
+  // A press that closed the showcase does not also open, drag or scrub the card under it:
+  // opening another card would snap the closing one home instead of letting it fly back.
+  if (taps.dismissing === e.pointerId) return;
   // Presses on a face's own controls (Lab faces) operate them rather than the card.
   if (e.target instanceof Element && e.target.closest(INTERACTIVE)) return;
   taps.press = { id, x: e.clientX, y: e.clientY, at: e.timeStamp, pointerId: e.pointerId };
@@ -630,10 +636,16 @@ function wireShowcase(): void {
       const open = cardById.get(showcase.id);
       if (open && e.target instanceof Node && open.card.contains(e.target)) return;
       showcase.close();
+      taps.dismissing = e.pointerId;
       kick();
     },
     { capture: true },
   );
+  for (const type of ["pointerup", "pointercancel"] as const) {
+    addEventListener(type, (e) => {
+      if (taps.dismissing === e.pointerId) taps.dismissing = undefined;
+    });
+  }
   addEventListener("keydown", (e) => {
     if (e.key !== "Escape" || !showcase.isOpen) return;
     showcase.close();

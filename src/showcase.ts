@@ -65,6 +65,8 @@ export class Showcase {
     }
     this.id = id;
     this.open.target = 1;
+    // Reopened while closing: start back out from rest, not against the closing motion.
+    this.open.v = Math.max(0, this.open.v);
     // A full turn that unwinds as the card arrives.
     this.spin.x = 360;
     this.spin.v = 0;
@@ -76,8 +78,13 @@ export class Showcase {
     this.flip.target = this.flip.target === 0 ? 180 : 0;
   }
 
+  /**
+   * Sends the card home. Closed mid-opening, the card would carry its outward speed on and
+   * stall before turning back; it turns back from rest instead.
+   */
   close(): void {
     this.open.target = 0;
+    this.open.v = Math.min(0, this.open.v);
     this.flip.target = 0;
   }
 
