@@ -174,3 +174,53 @@ describe("hold", () => {
     expect(h.remaining(800)).toBe(0);
   });
 });
+
+/** 101 ms is 12 whole steps of 1000/120 ms at either 60 or 120 Hz, with no step on the boundary. */
+const GLIDE_MS = 101;
+
+/** Releases a card dragged 200 px sideways and runs the sim at `hz` for `GLIDE_MS`. */
+function glideAt(hz: number): { x: number; rot: number } {
+  const t = new CardTable();
+  setup(t);
+  const id = DECKS.full[0]?.id ?? "";
+  t.down(id, sample(0), box);
+  t.dragMove(id, sample(200));
+  t.end(id, false, false);
+  for (let now = 0; now < GLIDE_MS; now += 1000 / hz) t.tick(now);
+  t.tick(GLIDE_MS);
+  const p = t.ph(id);
+  return { x: p.x + p.bx, rot: p.rot };
+}
+
+describe("fixed timestep", () => {
+  it("moves the same distance whether frames come at 60 or 120 Hz", () => {
+    const at60 = glideAt(60);
+    const at120 = glideAt(120);
+    expect(at60.x).toBeCloseTo(at120.x, 6);
+    expect(at60.rot).toBeCloseTo(at120.rot, 6);
+    // The card is still on its way back, so this does not compare two cards at rest.
+    expect(Math.abs(at120.x)).toBeGreaterThan(1);
+    expect(Math.abs(at120.x)).toBeLessThan(200);
+  });
+
+  it("draws between the last two steps", () => {
+    const t = new CardTable();
+    setup(t);
+    const id = DECKS.full[0]?.id ?? "";
+    t.down(id, sample(0), box);
+    t.dragMove(id, sample(200));
+    t.end(id, false, false);
+    const stepMs = 1000 / 120;
+    t.tick(stepMs + 0.01);
+    const a = t.ph(id).x + t.ph(id).bx;
+    t.tick(2 * stepMs + 0.02);
+    const b = t.ph(id).x + t.ph(id).bx;
+    // Half a step later: no new step, the drawn state is halfway from a to b.
+    t.tick(2.5 * stepMs + 0.02);
+    const mid = t.view(id);
+    expect(a).not.toBeCloseTo(b, 3);
+    // The 0.02 ms left over after the second step makes it slightly more than half.
+    const alpha = (0.5 * stepMs + 0.02) / stepMs;
+    expect(mid.x + mid.bx).toBeCloseTo(a + (b - a) * alpha, 3);
+  });
+});

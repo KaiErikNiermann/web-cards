@@ -285,8 +285,45 @@ function isMemberMoving(p: Phys, lt: number, trx: number, tryy: number, rt: numb
   );
 }
 
+/**
+ * The simulation's fixed step. Every spring factor here is per step, tuned on a 120 Hz phone,
+ * where it ran once per frame; stepping at a fixed rate keeps that speed at 60 Hz too.
+ */
+const STEP_MS = 1000 / 120;
+/** At most this many steps per frame; a longer stall is dropped rather than replayed. */
+const MAX_STEPS = 8;
+/** A gap this long between frames means the loop was idle and is starting again. */
+const IDLE_GAP_MS = 100;
+
+/** The quantities drawn from, blended between steps in `view`. */
+const DRAWN = [
+  "x",
+  "y",
+  "bx",
+  "by",
+  "ox",
+  "oy",
+  "rot",
+  "rx",
+  "ry",
+  "h",
+  "lift",
+  "px",
+  "py",
+  "gx",
+  "gy",
+  "sink",
+] as const satisfies readonly (keyof Phys)[];
+
 export class CardTable {
   private zc = 1;
+  private lastNow = 0;
+  private acc = 0;
+  private alpha = 1;
+  private wasActive = false;
+  /** Each card's drawn quantities as of the step before the last. */
+  private readonly prev = new Map<string, Phys>();
+  private readonly viewOut = new Map<string, Phys>();
   private intent: Intent | undefined;
   private readonly locs = new Map<string, Location>();
   readonly m: Material;
@@ -807,7 +844,65 @@ export class CardTable {
   }
 
   /** Advance one frame at time `now` (ms). Returns whether anything is still moving. */
+  /**
+   * Advances the simulation to `now` (ms) in fixed steps of `STEP_MS`, so motion runs at the
+   * same speed whatever the display's refresh rate (it switches between 60 and 120 Hz on
+   * phones); `view` then blends the last two steps for the frame in between. Returns whether
+   * anything still moves.
+   */
   tick(now: number): boolean {
+    const gap = now - this.lastNow;
+    this.lastNow = now;
+    // After an idle spell the loop restarts: one step, not a catch-up burst.
+    this.acc += gap > IDLE_GAP_MS ? STEP_MS : gap;
+    let steps = 0;
+    while (this.acc >= STEP_MS && steps < MAX_STEPS) {
+      this.keepPrevious();
+      this.wasActive = this.step(now);
+      this.acc -= STEP_MS;
+      steps += 1;
+    }
+    // A frame that fell far behind drops the time it cannot catch up on.
+    if (steps === MAX_STEPS) this.acc = Math.min(this.acc, STEP_MS);
+    this.alpha = this.acc / STEP_MS;
+    return this.wasActive;
+  }
+
+  /**
+   * The card's state for drawing: between the last two steps, by how far the frame is into the
+   * next one ($s = s_{prev} + \alpha (s_{cur} - s_{prev})$ for every drawn quantity).
+   */
+  view(id: string): Phys {
+    const p = this.ph(id);
+    const prev = this.prev.get(id);
+    // A card at rest draws as it is; blending is for cards in motion only.
+    if (!prev || !p.live || this.alpha >= 1) return p;
+    // One reused object per card: the caller reads it at once, and nothing is allocated per
+    // frame (a fresh copy per card per frame showed up as garbage collection in profiles).
+    let out = this.viewOut.get(id);
+    if (!out) {
+      out = { ...p };
+      this.viewOut.set(id, out);
+    }
+    Object.assign(out, p);
+    for (const k of DRAWN) out[k] = prev[k] + (p[k] - prev[k]) * this.alpha;
+    return out;
+  }
+
+  private keepPrevious(): void {
+    // Every card, at rest too: one that starts moving must blend from where it was.
+    for (const [id, p] of this.phys) {
+      let prev = this.prev.get(id);
+      if (!prev) {
+        prev = { ...p };
+        this.prev.set(id, prev);
+      }
+      for (const k of DRAWN) prev[k] = p[k];
+    }
+  }
+
+  /** One fixed step of every spring. */
+  private step(now: number): boolean {
     this.updateIntent(now);
     let isActive = this.intent !== undefined;
     for (const { pile } of this.allPiles()) isActive = this.tickPile(pile) || isActive;
