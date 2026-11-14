@@ -48,6 +48,10 @@ test:
 bench *args:
     pnpm bench {{ args }}
 
+# Compare face snapshots with the browser's rendering (target: phone, firefox, chromium)
+parity target="phone" *flags: build
+    uv run bench/parity.py dist --target {{ target }} {{ flags }}
+
 # --- Combined ---
 
 # What the pre-push hook runs

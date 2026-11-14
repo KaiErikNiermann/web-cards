@@ -115,11 +115,10 @@ function copyScroll(src: HTMLElement, clone: HTMLElement): void {
 /** Gap between atlas cells, in artboard px, so mipmaps of one face never sample the next. */
 const CELL_GAP = 4;
 
-/** Rasterizes the faces of `cards` (one artboard size) into one atlas. */
 /** Key of the card back's cell in its atlas. */
 const BACK = "back";
 
-interface Atlas {
+export interface Atlas {
   readonly regions: Map<string, NonNullable<FaceImages["face"]>>;
   /** Live-text elements of each face, drawn into the atlas canvas. */
   readonly live: Map<string, LiveText[]>;
@@ -131,8 +130,12 @@ interface Atlas {
  */
 const backs = new Map<string, Promise<FaceImages["face"]>>();
 
-/** Rasterizes `entries` (faces or a card back, one artboard size) into one atlas, by key. */
-async function atlas(
+/**
+ * Rasterizes `entries` (faces or a card back, one artboard size) into one atlas, by key.
+ * Exported for the parity check (debug/parity.html), which compares it with the browser's
+ * own rendering.
+ */
+export async function atlas(
   root: HTMLElement,
   entries: readonly { readonly key: string; readonly el: HTMLElement }[],
   board: { readonly bw: number; readonly bh: number },

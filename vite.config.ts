@@ -8,9 +8,9 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 export default defineConfig(({ mode }) => ({
   base: "./",
   plugins: mode === "single" ? [tailwindcss(), viteSingleFile()] : [tailwindcss()],
-  // The single-file build is the card table alone; the normal build adds the /debug page.
+  // The single-file build is the card table alone; the normal build adds the /debug pages.
   build:
     mode === "single"
       ? { assetsInlineLimit: Number.MAX_SAFE_INTEGER }
-      : { rolldownOptions: { input: { main: "index.html", debug: "debug/index.html" } } },
+      : { rolldownOptions: { input: { main: "index.html", debug: "debug/index.html", parity: "debug/parity.html" } } },
 }));

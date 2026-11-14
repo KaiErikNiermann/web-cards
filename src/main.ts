@@ -1,14 +1,7 @@
 // Entry point: builds the page, wires pointer and control events to the physics, and runs the
 // frame loop. A frame runs only while something moves; every input event re-arms it.
 
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/500.css";
-import "@fontsource/ibm-plex-sans/400.css";
-import "@fontsource/ibm-plex-sans/500.css";
-import "@fontsource/ibm-plex-sans/600.css";
-import "@fontsource/ibm-plex-serif/400-italic.css";
-import "@fontsource/ibm-plex-serif/500.css";
-import "@fontsource/ibm-plex-serif/600.css";
+import "./fonts";
 import "./styles/index.css";
 
 import { PRESETS, geometryFor, type Geometry, type SectionId } from "./data";
