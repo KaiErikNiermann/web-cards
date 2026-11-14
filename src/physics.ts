@@ -75,6 +75,8 @@ export interface Phys {
   pz: number;
   /** Shrink of a dragged card while a drop would stack it, in [0, 1]. */
   sink: number;
+  /** Moving, lifted or tilted: drawn with the 3D transform on its own layer. */
+  live: boolean;
 }
 
 export interface CardMeta {
@@ -198,6 +200,7 @@ function newPhys(): Phys {
     pile: false,
     pz: 0,
     sink: 0,
+    live: false,
   };
 }
 
@@ -333,6 +336,13 @@ export class CardTable {
   isPiled(id: string): boolean {
     const loc = this.locs.get(id);
     return loc !== undefined && (this.piles[loc.sec][loc.k]?.ids.length ?? 0) > 1;
+  }
+
+  /** Whether `id` is under another card of a closed pile, so nothing of it shows. */
+  isBuried(id: string): boolean {
+    const loc = this.locs.get(id);
+    const pile = loc && this.piles[loc.sec][loc.k];
+    return !!pile && loc.j < pile.ids.length - 1 && !pile.open && pile.o === 0;
   }
 
   pileOf(id: string): PileRef | undefined {
@@ -792,6 +802,12 @@ export class CardTable {
         pile.ids.length > 1
           ? this.tickMember(id, p, meta, pile, loc.j)
           : this.tickFree(id, p, meta, pile === armed);
+      p.live =
+        isMoving ||
+        p.drag ||
+        p.lift > 0.01 ||
+        Math.abs(p.rx) > 0.05 ||
+        Math.abs(p.ry) > 0.05;
       isActive = isMoving || isActive;
     }
     return isActive;

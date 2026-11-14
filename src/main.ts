@@ -33,6 +33,8 @@ const presetLabel = must(root, "[data-preset-label]", HTMLElement);
 const retToggle = must(root, "[data-ret]", HTMLInputElement);
 const resetButton = must(root, "[data-reset]", HTMLButtonElement);
 const cardById = new Map(cards.map((c) => [c.def.id, c]));
+/** Cards outside the viewport; their animations are held still. */
+const offscreen = new Set<string>();
 
 /** A finger resting on or sliding along a pile, before it has taken a card. */
 interface TouchScrub {
@@ -183,6 +185,8 @@ function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>): void {
   table.meta.set(c.def.id, { sec: c.sec, w: v.w, h: v.h, step: v.step, pad: v.pad });
   setVars(c.slot, v.vars);
   c.slot.toggleAttribute("data-pile", p.pile);
+  c.slot.toggleAttribute("data-live", p.live);
+  c.slot.toggleAttribute("data-still", offscreen.has(c.def.id) || table.isBuried(c.def.id));
   c.grain.hidden = mat.grainHidden;
   c.foil.hidden = v.foilHidden;
   c.hot.hidden = v.hotHidden;
@@ -274,7 +278,14 @@ function startScrub(id: string, el: HTMLElement, e: PointerEvent): void {
   }
   const hold = new Hold();
   hold.start(e.clientX, e.clientY, e.timeStamp);
-  const sc: TouchScrub = { pointerId: e.pointerId, pile: ref.pile, el, hold, timer: undefined, last: e };
+  const sc: TouchScrub = {
+    pointerId: e.pointerId,
+    pile: ref.pile,
+    el,
+    hold,
+    timer: undefined,
+    last: e,
+  };
   live.scrub = sc;
   const at = toLayout(e);
   table.closePiles(ref.pile);
@@ -421,8 +432,26 @@ function wirePileHover(): void {
   });
 }
 
+/** Tracks which cards are off screen, so their animations can stop. */
+function watchVisibility(): void {
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const en of entries) {
+        const id = en.target instanceof HTMLElement ? en.target.dataset.card : undefined;
+        if (id === undefined) continue;
+        if (en.isIntersecting) offscreen.delete(id);
+        else offscreen.add(id);
+      }
+      render();
+    },
+    { rootMargin: "64px" },
+  );
+  for (const c of cards) io.observe(c.slot);
+}
+
 function wire(): void {
   for (const c of cards) wireCard(c);
+  watchVisibility();
   wirePileHover();
   for (const { id, el } of chips) {
     el.addEventListener("click", () => {

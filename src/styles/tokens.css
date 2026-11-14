@@ -137,6 +137,9 @@
     );
     --ring-gold: rgb(255 206 120);
     --ring-pad: 2px;
+
+    /* Side of the spinning sweep, as a share of the card's inline size: past a 5:7 diagonal. */
+    --ring-span: 175%;
     --ring-glow-pad: 5px;
     --ring-glow-blur: 6px;
     --ring-glow-out: -3px;

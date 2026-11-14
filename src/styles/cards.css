@@ -3,15 +3,13 @@
    material (--m-*). Every formula here is the export's inline style, moved into CSS. */
 
 @layer components {
-  @property --orbit {
-    inherits: false;
-    initial-value: 0deg;
-    syntax: "<angle>";
-  }
-
   @keyframes orbit {
+    from {
+      transform: translate(-50%, -50%) rotate(0turn);
+    }
+
     to {
-      --orbit: 360deg;
+      transform: translate(-50%, -50%) rotate(1turn);
     }
   }
 
@@ -71,7 +69,7 @@
     inline-size: var(--w);
     perspective: var(--persp);
     position: relative;
-    transform: translate3d(var(--tx), var(--ty), 0);
+    transform: translate(var(--tx), var(--ty));
     z-index: var(--z);
   }
 
@@ -81,7 +79,6 @@
         color-mix(in srgb, var(--shade) calc(38% + var(--lift) * 18%), transparent),
       0 1px 2px color-mix(in srgb, var(--shade) 45%, transparent);
 
-    backface-visibility: hidden;
     border-radius: var(--r);
     box-shadow: var(--_shadow);
     cursor: var(--cursor);
@@ -90,11 +87,20 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: none;
     -webkit-touch-callout: none;
-    transform: rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz)) skewX(var(--skew))
-      scale(var(--scale));
+
+    /* 2D at rest: a 3D function, even rotateX(0deg), splits the card into more layers. */
+    transform: rotate(var(--rz)) skewX(var(--skew)) scale(var(--scale));
     transform-origin: 50% 50%;
     user-select: none;
     will-change: transform;
+  }
+
+  /* Every card keeps a layer, so moving one moves a texture and an animated face repaints
+     only itself. A card in motion, lifted or tilted also gets the 3D transform. */
+  .slot[data-live] .card {
+    backface-visibility: hidden;
+    transform: rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz)) skewX(var(--skew))
+      scale(var(--scale));
   }
 
   .slot[data-pile] .card {
@@ -109,9 +115,14 @@
     border-radius: var(--r);
     inset: 0;
     isolation: isolate;
-    mask-image: linear-gradient(var(--shade), var(--shade));
     overflow: hidden;
     position: absolute;
+  }
+
+  /* Safari leaks composited children (the animated pan) past a rounded overflow clip; a mask
+     holds them in. Only cards with such a child pay for the mask layer. */
+  .clip:has(.kb) {
+    mask-image: linear-gradient(var(--shade), var(--shade));
   }
 
   .face {
@@ -197,7 +208,10 @@
   .par {
     inset: 0;
     position: absolute;
-    transform: translate3d(var(--art-x), var(--art-y), 0) scale(1.1);
+
+    /* 2D on purpose: translate3d would give every art window its own layer, and every
+       material layer above it one more. */
+    transform: translate(var(--art-x), var(--art-y)) scale(1.1);
   }
 
   .par > img {
@@ -234,29 +248,35 @@
     mix-blend-mode: screen;
   }
 
+  /* The ring masks a conic sweep down to a border. The sweep is a square spinning about the
+     card's centre, which is the same picture as animating the gradient's start angle, but
+     runs on the compositor instead of repainting every frame. */
   .ring {
-    /* Held in a private property: @eslint/css cannot validate `from var()` in a gradient. */
-    --_sweep: conic-gradient(
-      from var(--orbit),
-      transparent 0deg,
-      transparent 230deg,
-      color-mix(in srgb, var(--ring-gold) 85%, transparent) 318deg,
-      var(--glint) 352deg,
-      transparent 360deg
-    );
-
-    animation: orbit 3.4s linear infinite;
-
-    /* eslint-disable-next-line css/no-invalid-properties -- `from var()` is valid; the validator cannot type it */
-    background: var(--_sweep);
     border-radius: var(--r);
     inset: 0;
     mask:
       linear-gradient(var(--shade) 0 0) content-box,
       linear-gradient(var(--shade) 0 0);
     mask-composite: exclude;
+    overflow: hidden;
     padding: var(--ring-pad);
     pointer-events: none;
+    position: absolute;
+  }
+
+  .ring-spin {
+    animation: orbit 3.4s linear infinite;
+    aspect-ratio: 1;
+    background: conic-gradient(
+      transparent 0deg,
+      transparent 230deg,
+      color-mix(in srgb, var(--ring-gold) 85%, transparent) 318deg,
+      var(--glint) 352deg,
+      transparent 360deg
+    );
+    inline-size: var(--ring-span);
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
     position: absolute;
   }
 
@@ -318,8 +338,13 @@
     }
   }
 
+  /* Cards off screen or buried in a closed pile hold their animations still. */
+  .slot[data-still] * {
+    animation-play-state: paused;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .ring,
+    .ring-spin,
     .trace-run,
     .trace-runb,
     .sweep,
