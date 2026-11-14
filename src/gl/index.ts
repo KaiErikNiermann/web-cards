@@ -14,6 +14,7 @@ import type { ShowFrame } from "../showcase";
 import { cardFrame, materialView, type CardFrame, type MaterialView } from "../view";
 import { hasDomParts } from "./bake";
 import { drawableFaces, hasDrawableCanvas } from "./drawable";
+import { isOverlayOnly, raisedAboveOverlay } from "./layering";
 import type { FaceImages, FaceSource } from "./faces";
 import { watchLiveFaces } from "./live";
 import { paint as paintText } from "./livetext";
@@ -199,6 +200,12 @@ function fxReach(fx: CardRefs["def"]["fx"], t: GlTokens): number {
 
 const byZ = (a: Placed, b: Placed): number => a.fr.z - b.fr.z;
 
+/** Whether two placed cards' projected bounds overlap. */
+const isOverlapping = (a: Placed, b: Placed): boolean =>
+  a.cx + a.box[0] < b.cx + b.box[2] &&
+  b.cx + b.box[0] < a.cx + a.box[2] &&
+  a.cy + a.box[1] < b.cy + b.box[3] &&
+  b.cy + b.box[1] < a.cy + a.box[3];
 
 interface SectionSurface {
   readonly id: SectionId;
@@ -274,6 +281,7 @@ export function mountGl(o: GlOptions): GlRenderer {
         return face !== null && hasDomParts(face);
       });
   const sectionsWithParts = new Set(withDomParts.map((c) => c.sec));
+  const domPartIds = new Set(withDomParts.map((c) => c.def.id));
 
   const images = (id: string): CardImages | undefined => {
     const f = faces.get(id);
@@ -448,16 +456,22 @@ export function mountGl(o: GlOptions): GlRenderer {
   }
 
   /**
-   * The section canvas that fully contains the card's quad; undefined means the overlay. The
-   * showcased card, and a moving card in a row with DOM parts (bake.ts), always go on the
-   * overlay: a row's canvas is under its slots, so DOM parts would cover them there.
+   * The section canvas that fully contains the card's quad; undefined means the overlay. Some
+   * cards go on the overlay wherever they are (layering.ts).
    */
   function surfaceFor(
     p: Placed,
     origins: ReadonlyMap<SectionSurface, Point>,
   ): SectionSurface | undefined {
-    if (p.fr.isShown) return undefined;
-    if (table.ph(p.c.def.id).live && sectionsWithParts.has(p.c.sec)) return undefined;
+    const ph = table.ph(p.c.def.id);
+    const routing = {
+      isShown: p.fr.isShown,
+      isDragged: ph.drag,
+      isMoving: ph.live,
+      hasParts: domPartIds.has(p.c.def.id),
+      rowHasParts: sectionsWithParts.has(p.c.sec),
+    };
+    if (isOverlayOnly(routing)) return undefined;
     const own = sections.find((s) => s.id === p.c.sec);
     const at = own && origins.get(own);
     if (!own || !at) return undefined;
@@ -571,10 +585,10 @@ export function mountGl(o: GlOptions): GlRenderer {
     totals.overlayCards += list.length;
     if (list.length > 0 || ov.drawn.size > 0) {
       ov.drawn = new Set(list.map((p) => p.c.def.id));
-      // Only the topmost card on the overlay rises above it with its DOM parts; one below
-      // another overlay card stays under the canvas, which draws the card above it.
-      const topId = list.at(-1)?.c.def.id;
-      for (const c of withDomParts) c.slot.toggleAttribute("data-gl-top", c.def.id === topId);
+      const raised = new Set(
+        [...raisedAboveOverlay(list, (p) => domPartIds.has(p.c.def.id), isOverlapping)].map((p) => p.c.def.id),
+      );
+      for (const c of withDomParts) c.slot.toggleAttribute("data-gl-top", raised.has(c.def.id));
       const rr = root.getBoundingClientRect();
       paint(ov.surface, list, { x: -rr.left / sc, y: -rr.top / sc }, ov.view, ctx);
     }
