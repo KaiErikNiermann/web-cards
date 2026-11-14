@@ -190,23 +190,16 @@
     </template>
 
     <template id="fx-orbit">
-      <div class="ring-glow"><div class="ring"><div class="ring-spin"></div></div></div>
-      <div class="ring"><div class="ring-spin"></div></div>
+      <div class="orbit-glow"><div class="orbit-spin"></div></div>
+      <div class="orbit"><div class="orbit-spin"></div></div>
     </template>
 
+    <!-- Perimeter traces: a faint base band and dashes spinning behind the face -->
     <template id="fx-trace">
-      <svg class="trace" aria-hidden="true">
-        <rect class="trace-base" x="1" y="1" pathLength="100"></rect>
-        <rect class="trace-run" x="1" y="1" pathLength="100"></rect>
-      </svg>
+      <div class="trace"><div class="trace-spin"></div></div>
     </template>
-
     <template id="fx-dual">
-      <svg class="trace" aria-hidden="true">
-        <rect class="trace-base" x="1" y="1" pathLength="100"></rect>
-        <rect class="trace-run" x="1" y="1" pathLength="100"></rect>
-        <rect class="trace-runb" x="1" y="1" pathLength="100"></rect>
-      </svg>
+      <div class="trace"><div class="trace-spin"></div><div class="trace-spin trace-spin-b"></div></div>
     </template>
   </body>
 </html>

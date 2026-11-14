@@ -124,12 +124,6 @@
     }
   }
 
-  @keyframes dash {
-    to {
-      stroke-dashoffset: -100;
-    }
-  }
-
   @keyframes sweep {
     0% {
       transform: translateX(-75%);
@@ -226,16 +220,15 @@
     background: var(--color-paper);
     border-radius: var(--r);
     inset: 0;
+
+    /* isolation also makes Safari clip animated (composited) children to the rounded corners;
+       the export used a mask for that, which Firefox redrew every frame of the pan. */
     isolation: isolate;
     overflow: hidden;
     position: absolute;
   }
 
-  /* Safari leaks composited children (the animated pan) past a rounded overflow clip; a mask
-     holds them in. Only cards with such a child pay for the mask layer. */
-  .clip:has(.kb) {
-    mask-image: linear-gradient(var(--shade), var(--shade));
-  }
+
 
   .face {
     block-size: var(--bh);
@@ -375,23 +368,33 @@
     mix-blend-mode: screen;
   }
 
-  /* The ring masks a conic sweep down to a border. The sweep is a square spinning about the
-     card's centre, which is the same picture as animating the gradient's start angle, but
-     runs on the compositor instead of repainting every frame. */
-  .ring {
-    border-radius: var(--r);
-    inset: 0;
-    mask:
-      linear-gradient(var(--shade) 0 0) content-box,
-      linear-gradient(var(--shade) 0 0);
-    mask-composite: exclude;
+  /* Orbit: a conic sweep spinning about the card's centre, behind the face, in a rounded box
+     a little larger than the card, so the opaque face leaves only a glowing band at the
+     edge. Spinning a square carrying the gradient is the same picture as animating its
+     start angle, but runs on the compositor; and with no mask over the spinning content,
+     Firefox does not redraw a mask every frame (a mask-composite border mask held it at
+     about 22 fps). Not named "ring": Tailwind's ring utility would add a box-shadow. */
+  .orbit,
+  .orbit-glow {
     overflow: hidden;
-    padding: var(--ring-pad);
     pointer-events: none;
     position: absolute;
+    z-index: var(--z-behind);
   }
 
-  .ring-spin {
+  .orbit {
+    border-radius: calc(var(--r) + var(--ring-pad));
+    inset: calc(var(--ring-pad) * -1);
+  }
+
+  .orbit-glow {
+    border-radius: calc(var(--r) + var(--ring-glow-pad));
+    filter: blur(var(--ring-glow-blur));
+    inset: calc(var(--ring-glow-pad) * -1);
+    opacity: 0.9;
+  }
+
+  .orbit-spin {
     animation: orbit 3.4s linear infinite;
     aspect-ratio: 1;
     background: conic-gradient(
@@ -407,52 +410,41 @@
     position: absolute;
   }
 
-  .ring-glow {
-    border-radius: var(--r);
-    filter: blur(var(--ring-glow-blur));
-    inset: var(--ring-glow-out);
-    opacity: 0.9;
-    pointer-events: none;
-    position: absolute;
-  }
 
-  .ring-glow > .ring {
-    padding: var(--ring-glow-pad);
-  }
-
+  /* Perimeter traces, built like the orbit: wedges of a repeating conic gradient spin behind
+     the face, so a thin band at the edge shows dashes running round the card, bending at
+     the corners. Was an SVG dash animation, which Firefox redrew every frame (about 21 fps
+     with one on screen). Being angular, a dash runs a little faster and longer along the
+     far parts of the long sides than an SVG dash did. No blurred glow copy, unlike the
+     orbit: re-blurring animated content cost Firefox about 10% of its frame rate while
+     anything else on screen moved. */
   .trace {
-    block-size: 100%;
-    inline-size: 100%;
-    inset: 0;
-    overflow: visible;
+    background: var(--trace-base);
+    border-radius: calc(var(--r) + var(--trace-pad));
+    inset: calc(var(--trace-pad) * -1);
+    overflow: hidden;
     pointer-events: none;
+    position: absolute;
+    z-index: var(--z-behind);
+  }
+
+  .trace-spin {
+    animation: orbit 3.2s linear infinite;
+    aspect-ratio: 1;
+
+    /* Two dashes, each 9% of a turn (the SVG's 9-in-50 dash pattern). */
+    background: repeating-conic-gradient(var(--trace-run) 0deg 32deg, transparent 32deg 180deg);
+    inline-size: var(--ring-span);
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
     position: absolute;
   }
 
-  .trace-base {
-    fill: none;
-    stroke: var(--trace-base);
-    stroke-width: 1;
-  }
+  .trace-spin-b {
+    animation: orbit 5s linear infinite reverse;
 
-  .trace-run {
-    animation: dash 3.2s linear infinite;
-    fill: none;
-    filter: drop-shadow(0 0 var(--trace-glow-blur) var(--trace-run-glow));
-    stroke: var(--trace-run);
-    stroke-dasharray: 9 41;
-    stroke-linecap: round;
-    stroke-width: 2;
-  }
-
-  .trace-runb {
-    animation: dash 5s linear infinite reverse;
-    fill: none;
-    filter: drop-shadow(0 0 var(--trace-glow-blur) var(--trace-runb-glow));
-    stroke: var(--trace-runb);
-    stroke-dasharray: 5 20;
-    stroke-linecap: round;
-    stroke-width: 2;
+    /* Four shorter dashes running the other way (the SVG's 5-in-25 pattern). */
+    background: repeating-conic-gradient(var(--trace-runb) 0deg 18deg, transparent 18deg 90deg);
   }
 
   .suit {
@@ -484,9 +476,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .ring-spin,
-    .trace-run,
-    .trace-runb,
+    .orbit-spin,
+    .trace-spin,
     .sweep,
     .kb,
     .ember {

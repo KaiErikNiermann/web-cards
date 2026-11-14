@@ -85,7 +85,6 @@ export interface CardView {
   readonly h: number;
   readonly step: number;
   readonly pad: number;
-  readonly radius: number;
 }
 
 export interface CardSize {
@@ -146,7 +145,6 @@ export function cardView(c: CardDef, p: Phys, g: Geometry, mat: MaterialView): C
     h,
     step,
     pad,
-    radius: face.radius,
     foilHidden: isFoilHidden,
     hotHidden: isHotHidden,
     vars: {

@@ -45,8 +45,6 @@ export interface CardRefs {
   readonly hot: HTMLElement;
   /** The parallax art window, on faces that have one. */
   readonly art: HTMLElement | undefined;
-  readonly svg: SVGSVGElement | undefined;
-  readonly outlines: readonly SVGRectElement[];
 }
 
 export interface SectionRefs {
@@ -104,12 +102,7 @@ function buildCard(c: CardDef, sec: SectionId, i: number): CardRefs {
   card.setAttribute("aria-label", c.label);
   fillFace(must(frag, "[data-face]", HTMLElement), c);
   if (c.fx === "live") edge.before(clone("fx-live"));
-  let svg: SVGSVGElement | undefined;
-  if (c.fx === "orbit") card.append(clone("fx-orbit"));
-  else if (c.fx === "trace" || c.fx === "dual") {
-    card.append(clone(`fx-${c.fx}`));
-    svg = must(card, "svg", SVGSVGElement);
-  }
+  else if (c.fx !== undefined) card.append(clone(`fx-${c.fx}`));
   return {
     def: c,
     sec,
@@ -125,8 +118,6 @@ function buildCard(c: CardDef, sec: SectionId, i: number): CardRefs {
     ],
     hot: must(frag, "[data-hot]", HTMLElement),
     art: frag.querySelector<HTMLElement>(".par") ?? undefined,
-    svg,
-    outlines: svg ? [...svg.querySelectorAll("rect")] : [],
   };
 }
 

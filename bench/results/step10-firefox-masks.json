@@ -1,0 +1,286 @@
+{
+  "label": "step10-firefox-masks",
+  "date": "2026-11-14T10:05:26.963Z",
+  "commit": "e09b898",
+  "browser": "chromium",
+  "runs": 3,
+  "results": {
+    "desktop": {
+      "idle": {
+        "frame": {
+          "frames": 119,
+          "p50": 16.699999999999818,
+          "p95": 16.799999999999727,
+          "max": 16.799999999999955,
+          "long": 0
+        },
+        "scriptMs": 1.3009999999999997,
+        "styleMs": 7.398999999999999,
+        "layoutMs": 0,
+        "taskMs": 33.07,
+        "styleCount": 120,
+        "layoutCount": 0,
+        "paintMs": 6.565,
+        "compositeMs": 7.306,
+        "heapMb": 2.23193359375,
+        "nodes": 1452,
+        "layers": 93,
+        "layerMpx": 8.576489
+      },
+      "hover-row": {
+        "frame": {
+          "frames": 389,
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 70.917,
+        "styleMs": 162.84799999999998,
+        "layoutMs": 2.068,
+        "taskMs": 771.98,
+        "styleCount": 391,
+        "layoutCount": 14,
+        "paintMs": 485.322,
+        "compositeMs": 302.144,
+        "heapMb": 2.419708251953125,
+        "nodes": 1455,
+        "layers": 93,
+        "layerMpx": 8.576489
+      },
+      "drag-row": {
+        "frame": {
+          "frames": 289,
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 51.211,
+        "styleMs": 104.52,
+        "layoutMs": 1.684,
+        "taskMs": 553.255,
+        "styleCount": 290,
+        "layoutCount": 11,
+        "paintMs": 212.2,
+        "compositeMs": 217.978,
+        "heapMb": 2.3966903686523438,
+        "nodes": 1455,
+        "layers": 100,
+        "layerMpx": 9.426557
+      },
+      "drag-mini": {
+        "frame": {
+          "frames": 289,
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 52.007,
+        "styleMs": 115.255,
+        "layoutMs": 0.125,
+        "taskMs": 560.4309999999999,
+        "styleCount": 290,
+        "layoutCount": 1,
+        "paintMs": 87.875,
+        "compositeMs": 227.116,
+        "heapMb": 2.3910789489746094,
+        "nodes": 1455,
+        "layers": 100,
+        "layerMpx": 8.765765
+      },
+      "pile-scrub": {
+        "frame": {
+          "frames": 105,
+          "p50": 16.699999999999932,
+          "p95": 33.30000000000018,
+          "max": 33.40000000000009,
+          "long": 9
+        },
+        "scriptMs": 28.206000000000003,
+        "styleMs": 59.330999999999996,
+        "layoutMs": 1.637,
+        "taskMs": 224.803,
+        "styleCount": 106,
+        "layoutCount": 8,
+        "paintMs": 54.088,
+        "compositeMs": 78.623,
+        "heapMb": 2.502777099609375,
+        "nodes": 1453,
+        "layers": 111,
+        "layerMpx": 10.217945
+      },
+      "pile-take": {
+        "frame": {
+          "frames": 196,
+          "p50": 16.699999999999818,
+          "p95": 33.30000000000018,
+          "max": 50,
+          "long": 17
+        },
+        "scriptMs": 40.281,
+        "styleMs": 95.983,
+        "layoutMs": 1.203,
+        "taskMs": 386.40400000000005,
+        "styleCount": 199,
+        "layoutCount": 6,
+        "paintMs": 99.534,
+        "compositeMs": 157.04,
+        "heapMb": 2.511932373046875,
+        "nodes": 1453,
+        "layers": 107,
+        "layerMpx": 9.755377
+      },
+      "fold": {
+        "frame": {
+          "frames": 106,
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "max": 16.800000000000068,
+          "long": 0
+        },
+        "scriptMs": 25.895999999999997,
+        "styleMs": 46.92,
+        "layoutMs": 0.7380000000000001,
+        "taskMs": 195.743,
+        "styleCount": 108,
+        "layoutCount": 5,
+        "paintMs": 151.929,
+        "compositeMs": 70.53,
+        "heapMb": 2.4381179809570312,
+        "nodes": 1456,
+        "layers": 93,
+        "layerMpx": 8.721353
+      }
+    },
+    "phone": {
+      "idle": {
+        "frame": {
+          "frames": 119,
+          "p50": 16.699999999999818,
+          "p95": 16.799999999999727,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 2.123999999999999,
+        "styleMs": 11.655000000000003,
+        "layoutMs": 0,
+        "taskMs": 67.99199999999999,
+        "styleCount": 121,
+        "layoutCount": 0,
+        "paintMs": 15.848,
+        "compositeMs": 19.082,
+        "heapMb": 2.2742576599121094,
+        "nodes": 1452,
+        "layers": 91,
+        "layerMpx": 4.601363
+      },
+      "drag-row": {
+        "frame": {
+          "frames": 294,
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 91.115,
+        "styleMs": 200.97199999999998,
+        "layoutMs": 0.803,
+        "taskMs": 1153.849,
+        "styleCount": 297,
+        "layoutCount": 2,
+        "paintMs": 159.977,
+        "compositeMs": 633.647,
+        "heapMb": 2.4339218139648438,
+        "nodes": 1455,
+        "layers": 91,
+        "layerMpx": 4.601363
+      },
+      "drag-mini": {
+        "frame": {
+          "frames": 295,
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 103.767,
+        "styleMs": 260.4,
+        "layoutMs": 1.34,
+        "taskMs": 1368.82,
+        "styleCount": 300,
+        "layoutCount": 2,
+        "paintMs": 160.773,
+        "compositeMs": 762.413,
+        "heapMb": 2.4376144409179688,
+        "nodes": 1455,
+        "layers": 92,
+        "layerMpx": 4.611339
+      },
+      "pile-scrub": {
+        "frame": {
+          "frames": 128,
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 79.729,
+        "styleMs": 188.322,
+        "layoutMs": 5.164000000000001,
+        "taskMs": 747.401,
+        "styleCount": 129,
+        "layoutCount": 9,
+        "paintMs": 80.853,
+        "compositeMs": 344.844,
+        "heapMb": 2.533489227294922,
+        "nodes": 1453,
+        "layers": 91,
+        "layerMpx": 4.601363
+      },
+      "pile-take": {
+        "frame": {
+          "frames": 297,
+          "p50": 16.699999999999818,
+          "p95": 16.799999999999727,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 197.83100000000002,
+        "styleMs": 461.877,
+        "layoutMs": 5.128,
+        "taskMs": 1908.4559999999997,
+        "styleCount": 299,
+        "layoutCount": 7,
+        "paintMs": 262.596,
+        "compositeMs": 835.602,
+        "heapMb": 2.462390899658203,
+        "nodes": 1453,
+        "layers": 93,
+        "layerMpx": 4.611235
+      },
+      "fold": {
+        "frame": {
+          "frames": 120,
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "max": 16.800000000000182,
+          "long": 0
+        },
+        "scriptMs": 40.567,
+        "styleMs": 100.145,
+        "layoutMs": 2.782,
+        "taskMs": 485.012,
+        "styleCount": 122,
+        "layoutCount": 5,
+        "paintMs": 135.32,
+        "compositeMs": 253.33,
+        "heapMb": 2.4568443298339844,
+        "nodes": 1456,
+        "layers": 91,
+        "layerMpx": 4.647263
+      }
+    }
+  }
+}

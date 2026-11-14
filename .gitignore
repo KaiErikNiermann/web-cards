@@ -5,3 +5,4 @@ dist/
 LOG.md
 .remember/
 .playwright-mcp/
+.upstream-issues/

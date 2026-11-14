@@ -124,6 +124,9 @@
     /* The page root is its own stacking context, so the overlay needs only to follow it. */
     --z-hud: 1;
 
+    /* Behind a card's face, inside the card's own stacking context. */
+    --z-behind: -1;
+
     /* Card material layers */
     --shade: rgb(0 0 0);
     --glint: rgb(255 255 255);
@@ -169,12 +172,9 @@
     --ring-span: 175%;
     --ring-glow-pad: 5px;
     --ring-glow-blur: 6px;
-    --ring-glow-out: -3px;
     --trace-base: rgb(160 210 255 / 22%);
     --trace-run: #a9d8ff;
-    --trace-run-glow: #6fbfff;
     --trace-runb: #ffcf7a;
-    --trace-runb-glow: #ffb347;
-    --trace-glow-blur: 3px;
+    --trace-pad: 2px;
   }
 }

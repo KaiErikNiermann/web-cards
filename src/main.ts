@@ -235,14 +235,6 @@ function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>, isForced:
   setHidden(c.grain, mat.grainHidden);
   setHidden(c.foil, v.foilHidden);
   setHidden(c.hot, v.hotHidden);
-  const vb = `0 0 ${String(v.w)} ${String(v.h)}`;
-  if (!c.svg || c.svg.getAttribute("viewBox") === vb) return;
-  c.svg.setAttribute("viewBox", vb);
-  for (const r of c.outlines) {
-    r.setAttribute("width", String(v.w - 2));
-    r.setAttribute("height", String(v.h - 2));
-    r.setAttribute("rx", String(v.radius - 1));
-  }
 }
 
 /**
