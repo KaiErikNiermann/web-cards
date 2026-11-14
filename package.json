@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p bench",
     "lint:ts": "eslint \"src/**/*.ts\" \"bench/**/*.ts\" \"*.config.ts\"",
     "lint:css": "eslint \"src/**/*.css\" && stylelint \"src/**/*.css\"",
-    "lint:style": "EIO_BACKEND=posix poetry -C .lint run semgrep --config \"$HOME/.claude/skills/principled-css/rules/principled-css.yml\" --error -q \"$PWD/src\" \"$PWD/index.html\"",
+    "lint:style": "EIO_BACKEND=posix poetry -C .lint run semgrep --config \"$HOME/.claude/skills/principled-css/rules/principled-css.yml\" --error -q \"$PWD/src\" \"$PWD/index.html\" \"$PWD/debug/index.html\"",
     "lint": "pnpm typecheck && pnpm lint:ts && pnpm lint:css && pnpm lint:style",
     "test": "vitest run",
     "bench": "node bench/run.ts"

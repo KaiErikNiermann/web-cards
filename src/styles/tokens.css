@@ -111,6 +111,22 @@
     --range-gap: 6px;
     --check-size: 18px;
 
+    /* /debug page test boxes (the same as the Firefox mask reproduction) */
+    --debug-box-w: 150px;
+
+    /* Overlay height (about 207px at the 12px text size) plus its inset and a gap. */
+    --debug-hud-space: 232px;
+    --debug-box-ratio: 5 / 7;
+    --debug-box-r: 11px;
+    --debug-box-bg: #2a2f37;
+    --debug-sweep: conic-gradient(transparent 0deg 230deg, #ffce78 318deg, #fff 352deg, transparent 360deg);
+    --debug-spin-time: 3.4s;
+    --debug-fade-time: 2s;
+    --debug-dash-time: 3.2s;
+    --debug-fade-inset: 20%;
+    --debug-mask-radial: radial-gradient(circle, #000 60%, transparent 70%);
+    --debug-mask-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10'/%3E%3C/svg%3E");
+
     /* Performance overlay */
     --hud-w: min(19rem, 100vw - 16px);
     --hud-inset: 8px;

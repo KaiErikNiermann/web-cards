@@ -1,0 +1,10 @@
+/* The /debug page's only stylesheet: the shared tokens, base and overlay, plus its test boxes. */
+
+@layer theme, base, components, utilities, overrides;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "./tokens.css";
+@import "./base.css";
+@import "./hud.css";
+@import "./debug.css";

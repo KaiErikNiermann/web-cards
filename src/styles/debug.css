@@ -1,0 +1,116 @@
+/* Test boxes of the /debug page. Each variant's clip is chosen by [data-variant] on the box's
+   wrapper; the patterns are deliberate (they reproduce a Firefox performance cliff), so do not
+   copy them into the card table. */
+
+@layer components {
+  .debug-root {
+    background: var(--color-table);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    min-block-size: 100vb;
+  }
+
+  /* The overlay is fixed over the top-start corner; while it shows, the page starts below it
+     so the note and controls stay readable. */
+  .debug-root:has(> .hud:not([hidden])) {
+    padding-block-start: var(--debug-hud-space);
+  }
+
+  /* --box-w is the size slider's value, set on the stage; boxes keep the cards' 5:7 shape. */
+  .debug-box {
+    aspect-ratio: var(--debug-box-ratio);
+    background: var(--debug-box-bg);
+    border-radius: var(--debug-box-r);
+    inline-size: var(--box-w, var(--debug-box-w));
+    overflow: hidden;
+    position: relative;
+  }
+
+  .debug-spin {
+    animation: debug-spin var(--debug-spin-time) linear infinite;
+    aspect-ratio: 1;
+    background: var(--debug-sweep);
+    inline-size: var(--ring-span);
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    position: absolute;
+  }
+
+  .debug-fade {
+    animation: debug-fade var(--debug-fade-time) ease-in-out infinite alternate;
+    background: var(--ring-gold);
+    inset: var(--debug-fade-inset);
+    position: absolute;
+  }
+
+  @keyframes debug-spin {
+    from {
+      transform: translate(-50%, -50%) rotate(0turn);
+    }
+
+    to {
+      transform: translate(-50%, -50%) rotate(1turn);
+    }
+  }
+
+  @keyframes debug-fade {
+    from {
+      opacity: 0.1;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  [data-variant="mask-exclude"] > .debug-box,
+  [data-variant="paused-mask-exclude"] > .debug-box {
+    mask:
+      linear-gradient(var(--shade) 0 0) content-box,
+      linear-gradient(var(--shade) 0 0);
+    mask-composite: exclude;
+    padding: var(--ring-pad);
+  }
+
+  [data-variant="mask-image"] > .debug-box,
+  [data-variant="fade-mask-image"] > .debug-box {
+    mask-image: linear-gradient(var(--shade), var(--shade));
+  }
+
+  [data-variant="mask-radial"] > .debug-box {
+    mask-image: var(--debug-mask-radial);
+  }
+
+  [data-variant="mask-svg"] > .debug-box {
+    mask-image: var(--debug-mask-svg);
+    mask-size: 100% 100%;
+  }
+
+  [data-variant="clip-path"] > .debug-box {
+    clip-path: inset(0 round var(--debug-box-r));
+  }
+
+  [data-variant="paused-mask-exclude"] .debug-spin {
+    animation-play-state: paused;
+  }
+
+  .debug-dash {
+    display: block;
+    aspect-ratio: var(--debug-box-ratio);
+    inline-size: var(--box-w, var(--debug-box-w));
+  }
+
+  .debug-dash > rect {
+    animation: debug-dash var(--debug-dash-time) linear infinite;
+    fill: none;
+    stroke: var(--trace-run);
+    stroke-dasharray: 9 41;
+    stroke-width: 2;
+  }
+
+  @keyframes debug-dash {
+    to {
+      stroke-dashoffset: -100;
+    }
+  }
+}

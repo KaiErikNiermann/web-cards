@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mask animation debug</title>
+    <script type="module" src="/src/debug.ts"></script>
+  </head>
+  <body class="debug-root">
+    <main class="flex flex-col gap-4 px-4 py-6">
+      <header class="flex flex-col gap-1.5">
+        <h1 class="m-0 text-title font-semibold tracking-title">Mask animation debug</h1>
+        <p class="m-0 max-w-prose text-lede leading-lede text-muted">
+          Not meant for user-facing content: a performance debugging utility for developers. It draws a number of rounded boxes whose child spins with a CSS transform animation; the variant changes only how each box is clipped. Firefox runs such an animation on the main thread when an ancestor has a mask or clip-path (<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1923933">bug 1923933</a>), which costs frames with its software compositor. Only boxes on screen cost frames: shrink them to fit more in view. Compare the frame rate in the overlay across variants, counts and sizes. The overlay itself costs some frames in Firefox (about 20% with 60 spinners on screen): untick it to see the page without it.
+        </p>
+      </header>
+
+      <section class="flex flex-wrap items-center gap-x-6 gap-y-3 text-ui text-label">
+        <label class="flex min-h-11 items-center gap-2.5">
+          Variant
+          <select class="min-h-9 rounded-control border border-btn-edge bg-btn px-2 font-sans text-ui text-ink" data-variant-select></select>
+        </label>
+        <label class="flex min-h-11 grow items-center gap-2.5">
+          Count
+          <input type="range" min="0" max="60" step="1" value="0" class="h-7 grow accent-accent" data-count />
+          <span class="min-w-8 text-end font-mono tabular-nums" data-count-value>0</span>
+        </label>
+        <label class="flex min-h-11 grow items-center gap-2.5">
+          Box size
+          <input type="range" min="30" max="150" step="10" value="150" class="h-7 grow accent-accent" data-size />
+          <span class="min-w-8 text-end font-mono tabular-nums" data-size-value>150</span>
+        </label>
+        <label class="flex min-h-11 items-center gap-2.5">
+          <input type="checkbox" class="m-0 size-4.5 accent-accent" data-hud-toggle />
+          Performance overlay
+        </label>
+      </section>
+
+      <p class="m-0 text-ui text-faint" data-variant-note></p>
+      <div class="flex flex-wrap gap-3" data-stage></div>
+    </main>
+  </body>
+</html>
