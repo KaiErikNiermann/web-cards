@@ -23,6 +23,8 @@ fixtures by both, with the reference, the snapshot and a map of the wrong pixels
 snapshot is taken at k x devicePixelRatio, as the renderer takes it. --factor multiplies the
 snapshot scale further (3 for the showcase's sharper copy); the snapshot is then resized to
 the reference before comparing. --baker canvas uses the html2canvas baker (?glsrc=canvas).
+--baker build compares the phone's own rendering with what the build bake would make of the
+fixture: its screenshot in headless Chromium at the bake's scale, resized to the reference.
 """
 
 import base64
@@ -31,8 +33,8 @@ import html
 import io
 import json
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Protocol
@@ -63,6 +65,11 @@ class Target(enum.StrEnum):
 class Baker(enum.StrEnum):
     SVG = "svg"
     CANVAS = "canvas"
+    BUILD = "build"
+
+
+# Device px per artboard px of the build bake (scripts/bake-faces.ts).
+BAKE_SCALE = 4
 
 
 class Browser(Protocol):
@@ -199,13 +206,17 @@ def heat(ref: NDArray[np.uint8], mask: NDArray[np.bool_]) -> Image.Image:
     return Image.fromarray(out)
 
 
-def compare(b: Browser, fixture: str, scale: float, out: Path) -> Result:
-    ref_png = b.shot(fixture)
+def snapshot_png(b: Browser, fixture: str, scale: float) -> bytes:
+    """The fixture rasterized by the renderer's atlas in browser `b`."""
     data = b.snap(fixture, scale)
     if not data.startswith("data:image/png;base64,"):
         raise RuntimeError(f"{fixture}: snapshot failed: {data[:200]}")
-    ref = rgb(ref_png)
-    snap_img = Image.fromarray(rgb(base64.b64decode(data.split(",", 1)[1])))
+    return base64.b64decode(data.split(",", 1)[1])
+
+
+def compare(b: Browser, fixture: str, snap_png: Callable[[], bytes], out: Path) -> Result:
+    ref = rgb(b.shot(fixture))
+    snap_img = Image.fromarray(rgb(snap_png()))
     snap = np.asarray(snap_img.resize((ref.shape[1], ref.shape[0]), Image.Resampling.LANCZOS), dtype=np.uint8)
     mask, mean, shift = wrong_pixels(ref, snap)
     Image.fromarray(ref).save(out / f"{fixture}-ref.png")
@@ -232,6 +243,15 @@ th{{text-align:start}}</style>
     )
 
 
+def open_parity(b: Browser, url: str) -> None:
+    b.goto(url)
+    for _ in range(120):
+        if b.js("document.documentElement.dataset.parity") == "ready":
+            return
+        time.sleep(0.5)
+    raise RuntimeError("parity page did not get ready")
+
+
 def main(
     dist: Annotated[Path, typer.Argument(help="built site holding debug/parity.html")],
     target: Annotated[Target, typer.Option()] = Target.PHONE,
@@ -248,14 +268,16 @@ def main(
     run_dir = out / name
     run_dir.mkdir(parents=True, exist_ok=True)
     query = f"?k={k:g}" + ("&glsrc=canvas" if baker is Baker.CANVAS else "")
-    with serve(dist, PORT) as base, browser(target, serial, dpr) as b:
-        b.goto(f"{base}/debug/parity.html{query}")
-        for _ in range(120):
-            if b.js("document.documentElement.dataset.parity") == "ready":
-                break
-            time.sleep(0.5)
-        else:
-            raise RuntimeError("parity page did not get ready")
+    if baker is Baker.BUILD and target is not Target.PHONE:
+        raise typer.BadParameter("--baker build compares a device with desktop Chromium; use --target phone")
+    with ExitStack() as stack:
+        base = stack.enter_context(serve(dist, PORT))
+        b = stack.enter_context(browser(target, serial, dpr))
+        open_parity(b, f"{base}/debug/parity.html{query}")
+        # The build bake: the same fixture in headless Chromium at the bake's scale, unscaled.
+        builder = stack.enter_context(browser(Target.CHROMIUM, None, BAKE_SCALE)) if baker is Baker.BUILD else None
+        if builder is not None:
+            open_parity(builder, f"{base}/debug/parity.html")
         ids = b.js("parity.ids")
         page_dpr = b.js("devicePixelRatio")
         assert isinstance(ids, list) and isinstance(page_dpr, (int, float))
@@ -264,7 +286,13 @@ def main(
         for fixture in (str(i) for i in ids):
             if wanted is not None and fixture not in wanted:
                 continue
-            r = compare(b, fixture, k * float(page_dpr) * factor, run_dir)
+            scale = k * float(page_dpr) * factor
+            snap = (
+                (lambda f=fixture, w=builder: w.shot(f))
+                if builder is not None
+                else (lambda f=fixture, s=scale: snapshot_png(b, f, s))
+            )
+            r = compare(b, fixture, snap, run_dir)
             results.append(r)
             print(f"{r.wrong_pct:7.2f}%  {r.mean_diff:5.1f}  {r.shift}  {fixture}", flush=True)
     report(results, f"Snapshot parity: {name}, devicePixelRatio {page_dpr}", run_dir)
