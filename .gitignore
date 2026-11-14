@@ -7,3 +7,4 @@ LOG.md
 .playwright-mcp/
 .upstream-issues/
 bench/__pycache__/
+research/

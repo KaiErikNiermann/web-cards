@@ -143,6 +143,11 @@
     /* Behind a card's face, inside the card's own stacking context. */
     --z-behind: -1;
 
+    /* WebGL rendering: the canvas for cards in flight (dragged, gliding, in the showcase) sits
+       above every card slot, which can carry z-index up to the showcase's 10000; a card drawn
+       by the DOM with a raised z otherwise covered a showcased card. */
+    --z-gl-overlay: 10001;
+
     /* Card material layers */
     --shade: rgb(0 0 0);
     --glint: rgb(255 255 255);
@@ -192,5 +197,16 @@
     --trace-run: #a9d8ff;
     --trace-runb: #ffcf7a;
     --trace-pad: 2px;
+
+    /* Card back: a lattice of fine gold lines */
+    --back-pattern:
+      repeating-linear-gradient(45deg, rgb(184 155 94 / 16%) 0 1px, transparent 1px 9px),
+      repeating-linear-gradient(-45deg, rgb(184 155 94 / 16%) 0 1px, transparent 1px 9px);
+
+    /* WebGL rendering (?gl): how far a row's canvas reaches past the row, so lifted cards,
+       their shadows and border glows stay inside it. Sideways only the glow and the shadow's
+       spread; above and below also a lifted card's deeper shadow. */
+    --gl-margin-block: 96px;
+    --gl-margin-inline: 48px;
   }
 }

@@ -55,11 +55,16 @@ export interface SectionRefs {
   readonly stackLabel: HTMLElement;
 }
 
+/** Elements on a face that take input themselves: presses on them do not move the card. */
+export const INTERACTIVE =
+  "input, textarea, select, button, label, [contenteditable], [data-scroll]";
+
 const TITLES: Readonly<Record<SectionId, string>> = {
   full: "Full size",
   anim: "Animated",
   stack: "Stack",
   mini: "Cardlets",
+  lab: "Lab",
 };
 
 function fillFace(face: HTMLElement, c: CardDef): void {
@@ -88,6 +93,13 @@ function fillFace(face: HTMLElement, c: CardDef): void {
       img?.setAttribute("src", c.src);
       img?.style.setProperty("object-position", c.pos);
       must(face, "[data-badge]", HTMLElement).textContent = c.badge;
+      break;
+    }
+    case "note":
+    case "form":
+    case "clock":
+    case "list": {
+      // Lab faces are complete in their templates.
       break;
     }
   }

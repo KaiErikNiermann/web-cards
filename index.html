@@ -108,6 +108,14 @@
             <div class="layer hot" data-hot><div class="spot" data-hot-spot></div></div>
             <div class="layer edge" data-edge></div>
           </div>
+          <!-- The card back, turned away; shown when the showcase turns the card over -->
+          <div class="back" data-back aria-hidden="true">
+            <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-unit bg-(image:--back-pattern) text-parchment">
+              <div class="absolute inset-2 rounded-plate border border-unit-frame"></div>
+              <span class="font-serif text-face-display leading-none">⚔︎</span>
+              <span class="font-mono text-face-micro tracking-kicker text-unit-caption uppercase">web cards</span>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -168,6 +176,81 @@
     <template id="face-miniart">
       <div class="par"><img alt="" draggable="false" data-src /></div>
       <span class="absolute start-1.75 bottom-1.75 rounded-tag bg-badge px-1 py-0.75 font-mono text-face-tiny leading-none font-medium text-white" data-badge></span>
+    </template>
+
+    <!-- Lab faces (?lab): editable, live and scrolling content -->
+    <template id="face-note">
+      <div class="absolute inset-0 box-border flex flex-col gap-1.5 bg-parchment p-2.25 text-unit-ink">
+        <input
+          class="rounded-plate border border-unit-rule bg-paper px-1.5 py-1 font-serif text-face-name font-semibold text-unit-ink"
+          value="Field notes"
+          aria-label="Note title"
+        />
+        <textarea
+          class="grow resize-none rounded-plate border border-unit-rule bg-paper px-1.5 py-1 font-serif text-face-body leading-face-body text-unit-ink"
+          aria-label="Note text"
+        >
+Leadership applies to adjacent allies of a lower level. Hold the river crossing until dawn, then fall back to the keep.</textarea
+        >
+        <span class="font-mono text-face-tiny text-unit-foot">editable · tap to type</span>
+      </div>
+    </template>
+
+    <template id="face-form">
+      <form class="absolute inset-0 m-0 box-border flex flex-col gap-1.5 bg-paper p-2.25 font-sans text-face-small text-glyph">
+        <span class="font-serif text-face-name font-semibold">Muster</span>
+        <label class="flex items-center gap-1.5"><input type="checkbox" class="accent-accent" checked /> Spearmen</label>
+        <label class="flex items-center gap-1.5"><input type="checkbox" class="accent-accent" /> Bowmen</label>
+        <label class="flex items-center gap-1.5"><input type="checkbox" class="accent-accent" checked /> Cavalry</label>
+        <select class="rounded-plate border border-unit-rule bg-parchment px-1 py-0.5 font-sans text-face-small text-glyph" aria-label="Formation">
+          <option>Line</option>
+          <option selected>Wedge</option>
+          <option>Square</option>
+        </select>
+        <label class="flex flex-col gap-0.5">Morale <input type="range" class="accent-accent" value="70" /></label>
+      </form>
+    </template>
+
+    <template id="face-clock">
+      <div class="absolute inset-0 box-border flex flex-col items-center justify-center gap-1 bg-unit p-2.25 text-parchment">
+        <span class="font-mono text-face-tiny tracking-kicker text-unit-caption uppercase">local time</span>
+        <span class="font-mono text-face-display leading-none font-medium" data-clock data-live-text>00:00:00</span>
+        <span class="font-mono text-face-small text-unit-caption">tick <b data-count data-live-text>0</b></span>
+      </div>
+    </template>
+
+    <template id="face-list">
+      <div class="absolute inset-0 box-border flex flex-col gap-1 bg-paper p-2.25 text-glyph">
+        <span class="font-serif text-face-name font-semibold">Roll call</span>
+        <ol class="m-0 grow overflow-auto rounded-plate border border-unit-rule bg-parchment py-1 ps-6 pe-1 font-sans text-face-small leading-face-body" data-scroll>
+          <li>Elvish Captain 🏹</li>
+          <li dir="rtl">قائد الجان</li>
+          <li dir="rtl">מפקד השדונים</li>
+          <li>エルフの隊長</li>
+          <li>Kapitän der Elfen</li>
+          <li>Капитан эльфов</li>
+          <li>Elvish Fighter ⚔️</li>
+          <li>Elvish Archer 🎯</li>
+          <li>Elvish Shaman 🌿</li>
+          <li>Elvish Scout 🐎</li>
+          <li>Merman Hunter 🔱</li>
+          <li>Wose 🌳</li>
+          <li>Mage 🔥</li>
+          <li>Horseman 🛡️</li>
+          <li>Thief 🗝️</li>
+          <li>Footpad 👣</li>
+          <li>Poacher 🪤</li>
+          <li>Thug 🪓</li>
+          <li>Cavalryman 🐴</li>
+          <li>Heavy Infantryman ⚒️</li>
+          <li>Fencer 🤺</li>
+          <li>White Mage ✨</li>
+          <li>Red Mage 🔥</li>
+          <li>Lieutenant ⭐</li>
+          <li>Spearman 🔱</li>
+          <li>Bowman 🏹</li>
+        </ol>
+      </div>
     </template>
 
     <!-- Effects -->

@@ -20,10 +20,21 @@ import {
   type CardRefs,
   type SectionRefs,
 } from "./dom";
+import { INTERACTIVE } from "./dom";
+import { mountGl } from "./gl";
 import { Hold } from "./gesture";
 import { mountHud, wireHudToggle } from "./hud";
 import { CardTable, type Pile, type Point } from "./physics";
-import { cardView, materialView, setAttr, setHidden, setText, setVars } from "./view";
+import { Showcase, type ShowFrame } from "./showcase";
+import {
+  cardSize,
+  cardView,
+  materialView,
+  setAttr,
+  setHidden,
+  setText,
+  setVars,
+} from "./view";
 
 const root = must(document, "[data-root]", HTMLElement);
 const table = new CardTable();
@@ -42,7 +53,7 @@ function countLive(): number {
 
 const hud = mountHud(document.body, () => {
   const state = live.raf === 0 ? "idle" : "running";
-  return `${String(countLive())} live cards · sim ${state}`;
+  return `${String(countLive())} live cards · sim ${state}${gl ? " · webgl" : ""}`;
 });
 /** Cards outside the viewport; their animations are held still. */
 const offscreen = new Set<string>();
@@ -100,6 +111,46 @@ function measure(): void {
   }
 }
 
+const showcase = new Showcase();
+
+/** Main-loop frames and their JS time since load, for tests (`?gldebug`: `__appTotals`). */
+const appTotals = { frames: 0, ms: 0 };
+if (location.search.includes("gldebug")) Reflect.set(globalThis, "__appTotals", appTotals);
+
+/**
+ * The showcased card's transform: the offset from its home to the middle of the viewport and
+ * the scale at which it fills most of the screen (at most 3x).
+ */
+function showOf(c: CardRefs): ShowFrame | undefined {
+  if (showcase.id !== c.def.id) return undefined;
+  const home = table.homes.get(c.def.id);
+  if (!home) return undefined;
+  const rr = root.getBoundingClientRect();
+  const sc = table.sc || 1;
+  const size = cardSize(c.def, live.geo);
+  const fit = Math.min(
+    (innerWidth * 0.86) / (size.w * sc),
+    (innerHeight * 0.72) / (size.h * sc),
+    3,
+  );
+  const centre = { x: (innerWidth / 2 - rr.left) / sc, y: (innerHeight / 2 - rr.top) / sc };
+  return showcase.frameOf(c.def.id, { x: centre.x - home.x, y: centre.y - home.y }, fit);
+}
+
+/** WebGL rendering (`?gl`): the canvases draw the cards, the DOM cards only take input. */
+const gl = new URLSearchParams(location.search).has("gl")
+  ? mountGl({
+      root,
+      table,
+      sections,
+      cards,
+      geometry: () => live.geo,
+      layoutPos,
+      show: showOf,
+      isSimPending: () => live.raf !== 0,
+    })
+  : undefined;
+
 const hasPile = (sec: SectionId): boolean => table.piles[sec].some((p) => p.ids.length > 1);
 
 /**
@@ -149,6 +200,9 @@ function sectionNote(s: SectionRefs): string {
     case "mini": {
       return `same shape · ${String(live.geo.mw)} × ${String(live.geo.mh)} · glyph faces`;
     }
+    case "lab": {
+      return "editable, live and scrolling faces, for testing renderers";
+    }
   }
 }
 
@@ -197,11 +251,14 @@ const liveLastFrame = new Set<string>();
 
 /** Writes one card's state to the DOM; unless `isForced`, only while it moves or just stopped. */
 function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>, isForced: boolean): void {
-  const p = table.ph(c.def.id);
-  if (!isForced && !p.live && !liveLastFrame.has(c.def.id)) return;
-  if (p.live) liveLastFrame.add(c.def.id);
+  const p = table.view(c.def.id);
+  const isShown = showcase.id === c.def.id;
+  const { live: isLive } = p;
+  if (!(isForced || isShown || isLive || liveLastFrame.has(c.def.id))) return;
+  if (isShown || isLive) liveLastFrame.add(c.def.id);
   else liveLastFrame.delete(c.def.id);
-  const v = cardView(c.def, p, live.geo, mat);
+  const v = cardView(c.def, p, live.geo, mat, showOf(c));
+  c.slot.toggleAttribute("data-show", isShown);
   table.meta.set(c.def.id, { sec: c.sec, w: v.w, h: v.h, step: v.step, pad: v.pad });
   setVars(c.slot, v.vars.slot);
   setVars(c.card, v.vars.card);
@@ -235,6 +292,7 @@ function render(isForced = true): void {
   const mat = materialView(table.m);
   setVars(root, mat.vars);
   for (const c of cards) renderCard(c, mat, isForced);
+  if (isForced) gl?.invalidate();
   renderSections();
   renderControls();
 }
@@ -253,9 +311,14 @@ function kick(): void {
       relayout();
     }
     const isActive = table.tick(now);
+    const isShowing = showcase.tick(now);
     render(hasNewPiles || hasNewFan);
-    hud.record(performance.now() - t0);
-    if (isActive) kick();
+    gl?.frame(now);
+    const ms = performance.now() - t0;
+    hud.record(ms);
+    appTotals.frames += 1;
+    appTotals.ms += ms;
+    if (isActive || isShowing) kick();
   });
 }
 
@@ -356,8 +419,46 @@ function clearStale(e: PointerEvent): void {
   if (id !== undefined && table.ph(id).pid !== e.pointerId) table.end(id, true, false);
 }
 
+/** A press that may turn out to be a tap (short, barely moving): it opens the showcase. */
+const taps: {
+  press: { id: string; x: number; y: number; at: number; pointerId: number } | undefined;
+} = { press: undefined };
+const TAP_MS = 300;
+/** How long after opening the showcase the card is rasterized at its grown size. */
+const UPSCALE_AFTER_MS = 900;
+const TAP_PX = 8;
+
+function isTap(id: string, e: PointerEvent): boolean {
+  const { press } = taps;
+  return (
+    press?.id === id &&
+    press.pointerId === e.pointerId &&
+    e.timeStamp - press.at < TAP_MS &&
+    Math.hypot(e.clientX - press.x, e.clientY - press.y) < TAP_PX
+  );
+}
+
+/** A tap on a card opens it in the showcase; on the open card it turns it over. */
+function onTap(id: string): void {
+  if (showcase.id === id && showcase.isOpen) showcase.turn();
+  else {
+    showcase.show(id);
+    // A sharper copy for the grown card, once it has arrived: a snapshot on the main thread
+    // mid-flight stalled the animation.
+    setTimeout(() => {
+      if (showcase.id === id) gl?.upscale(id);
+    }, UPSCALE_AFTER_MS);
+  }
+  kick();
+}
+
 function onCardDown(id: string, el: HTMLElement, e: PointerEvent): void {
   if (e.button !== 0 && e.pointerType === "mouse") return;
+  // Presses on a face's own controls (Lab faces) operate them rather than the card.
+  if (e.target instanceof Element && e.target.closest(INTERACTIVE)) return;
+  taps.press = { id, x: e.clientX, y: e.clientY, at: e.timeStamp, pointerId: e.pointerId };
+  // The showcased card takes taps (turn over) and tilts; it is not dragged.
+  if (showcase.id === id) return;
   clearStale(e);
   measure();
   if (table.isPiled(id)) {
@@ -383,8 +484,9 @@ function onCardMove(id: string, el: HTMLElement, e: PointerEvent): void {
     if (e.pointerId !== p.pid) return;
     table.dragMove(id, e);
   } else {
-    // Piles take mouse hover through the window listener, by geometry.
-    if (e.pointerType !== "mouse" || p.pile) return;
+    // Piles take mouse hover through the window listener, by geometry; a showcased card
+    // follows a finger too.
+    if ((e.pointerType !== "mouse" && showcase.id !== id) || p.pile) return;
     const r = slotRect(el);
     if (!r) return;
     if (!p.hover) measure();
@@ -398,6 +500,8 @@ function onCardEnd(id: string, el: HTMLElement, e: PointerEvent, wasCancelled: b
     endScrub();
     return;
   }
+  if (!wasCancelled && isTap(id, e) && !table.isPiled(id)) onTap(id);
+  taps.press = undefined;
   const p = table.ph(id);
   if (!p.drag || e.pointerId !== p.pid) return;
   const r = slotRect(el);
@@ -473,13 +577,17 @@ function wirePileHover(): void {
 function watchVisibility(): void {
   const io = new IntersectionObserver(
     (entries) => {
+      // Only the cards that crossed the edge change (their animations start or stop); a full
+      // forced render here ran on every crossing while scrolling and rewrote every card.
+      const mat = materialView(table.m);
       for (const en of entries) {
-        const id = en.target instanceof HTMLElement ? en.target.dataset.card : undefined;
-        if (id === undefined) continue;
-        if (en.isIntersecting) offscreen.delete(id);
-        else offscreen.add(id);
+        const c =
+          en.target instanceof HTMLElement ? cardById.get(en.target.dataset.card ?? "") : undefined;
+        if (!c) continue;
+        if (en.isIntersecting) offscreen.delete(c.def.id);
+        else offscreen.add(c.def.id);
+        renderCard(c, mat, true);
       }
-      render();
     },
     { rootMargin: "64px" },
   );
@@ -520,6 +628,33 @@ function wire(): void {
   window.addEventListener("resize", onResize);
 }
 
+/** Closes the showcase on a press anywhere but the open card, on Escape, and follows scrolls. */
+function wireShowcase(): void {
+  addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!showcase.isOpen || showcase.id === undefined) return;
+      const open = cardById.get(showcase.id);
+      if (open && e.target instanceof Node && open.card.contains(e.target)) return;
+      showcase.close();
+      kick();
+    },
+    { capture: true },
+  );
+  addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !showcase.isOpen) return;
+    showcase.close();
+    kick();
+  });
+  addEventListener(
+    "scroll",
+    () => {
+      if (showcase.id !== undefined) kick();
+    },
+    { passive: true },
+  );
+}
+
 function onResize(): void {
   live.geo = geometryFor(window.innerWidth);
   render();
@@ -527,7 +662,22 @@ function onResize(): void {
   kick();
 }
 
+/** Lab clock faces: the time and a counter, rewritten every second. */
+function tickClocks(): void {
+  const clocks = root.querySelectorAll<HTMLElement>("[data-clock]");
+  if (clocks.length === 0) return;
+  let n = 0;
+  setInterval(() => {
+    n += 1;
+    const time = new Date().toLocaleTimeString("en-GB");
+    for (const el of clocks) setText(el, time);
+    for (const el of root.querySelectorAll<HTMLElement>("[data-count]")) setText(el, String(n));
+  }, 1000);
+}
+
 wire();
+wireShowcase();
+tickClocks();
 onResize();
 // Fonts and images settle layout after the first frame; lay out again once they have.
 setTimeout(() => {

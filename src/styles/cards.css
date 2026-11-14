@@ -185,7 +185,7 @@
       0 1px 2px color-mix(in srgb, var(--shade) 45%, transparent);
 
     border-radius: var(--r);
-    box-shadow: var(--_shadow);
+    box-shadow: var(--gl-card-shadow, var(--_shadow));
     cursor: var(--cursor);
     inset: 0;
     position: absolute;
@@ -202,6 +202,12 @@
     transform-origin: 50% 50%;
     user-select: none;
     will-change: transform;
+  }
+
+  /* The card's own layers; WebGL rendering (?gl) takes them out of the render tree. */
+  .card > * {
+    display: var(--gl-card-content, block);
+    opacity: var(--gl-card-ghost, 1);
   }
 
   /* Every card keeps a layer, so moving one moves a texture and an animated face repaints
@@ -468,6 +474,33 @@
     will-change: opacity;
   }
 
+  /* The card back faces away until the showcase turns the card (src/showcase.ts). Only the
+     showcased card gets a 3D context, so the back and the front can face opposite ways. */
+  .back {
+    backface-visibility: hidden;
+    border-radius: var(--r);
+    inset: 0;
+    overflow: hidden;
+    position: absolute;
+    transform: rotateY(0.5turn);
+    visibility: hidden;
+  }
+
+  .slot[data-show] .card {
+    backface-visibility: visible;
+    transform: rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz)) skewX(var(--skew))
+      scale(var(--scale));
+    transform-style: preserve-3d;
+  }
+
+  .slot[data-show] .clip {
+    backface-visibility: hidden;
+  }
+
+  .slot[data-show] .back {
+    visibility: visible;
+  }
+
   /* Cards off screen, buried in a closed pile, or on the page while a pile is fanned hold
      their animations still. */
   .slot[data-still] * {
@@ -487,6 +520,91 @@
 
   .slot[data-flat] .card {
     --_shadow: 0 1px 2px color-mix(in srgb, var(--shade) 45%, transparent);
+  }
+
+  /* WebGL rendering (?gl, src/gl/): once the canvases take over ("on"), the DOM cards keep
+     their boxes for input but draw nothing, and their layers leave the render tree, so no
+     animation of theirs runs. */
+  .page-root[data-gl="on"] {
+    --gl-card-content: none;
+    --gl-card-shadow: none;
+  }
+
+  /* A card with controls keeps its face laid out but invisible under WebGL, so presses reach
+     the controls (src/gl/live.ts). */
+  .slot[data-gl-ghost] {
+    --gl-card-content: initial;
+    --gl-card-ghost: 0;
+  }
+
+  /* The ghost only takes presses: no material layers or face filter to process. */
+  .slot[data-gl-ghost] .layer {
+    display: none;
+  }
+
+  .slot[data-gl-ghost] .face {
+    filter: none;
+  }
+
+  /* A card someone is typing into or scrolling (src/gl/live.ts) is drawn by the DOM meanwhile;
+     `initial` makes the custom properties invalid, so the fallbacks apply again. It draws flat
+     (no material layers or face filter): every input repainted the face under blend layers. */
+  .slot[data-gl-dom] {
+    --gl-card-content: initial;
+    --gl-card-shadow: initial;
+    --gl-card-ghost: initial;
+  }
+
+  .slot[data-gl-dom] .layer {
+    display: none;
+  }
+
+  .slot[data-gl-dom] .face {
+    filter: none;
+  }
+
+
+  .page-root[data-gl] .card-row {
+    position: relative;
+  }
+
+  .gl-surface {
+    display: block;
+    block-size: calc(100% + var(--gl-margin-block) * 2);
+    inline-size: calc(100% + var(--gl-margin-inline) * 2);
+    inset-block-start: calc(var(--gl-margin-block) * -1);
+    inset-inline-start: calc(var(--gl-margin-inline) * -1);
+    pointer-events: none;
+    position: absolute;
+  }
+
+  /* Off-screen grid the WebGL faces are rasterized from (src/gl/raster.ts), one cell per face. */
+  .gl-atlas {
+    block-size: var(--atlas-h);
+    inline-size: var(--atlas-w);
+    inset-block-start: 0;
+    inset-inline-start: calc(var(--atlas-w) * -2);
+    pointer-events: none;
+    position: fixed;
+  }
+
+  .gl-atlas-cell {
+    block-size: var(--cell-h);
+    inline-size: var(--cell-w);
+    inset-block-start: var(--cell-y);
+    inset-inline-start: var(--cell-x);
+    overflow: hidden;
+    position: absolute;
+  }
+
+  .gl-overlay {
+    display: block;
+    block-size: 100%;
+    inline-size: 100%;
+    inset: 0;
+    pointer-events: none;
+    position: fixed;
+    z-index: var(--z-gl-overlay);
   }
 
   @media (prefers-reduced-motion: reduce) {

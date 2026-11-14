@@ -69,13 +69,22 @@ export type CardDef = CardBase &
         readonly pos: string;
         readonly badge: string;
       }
+    /** Lab faces (`?lab`): live DOM content a snapshot renderer has to keep up with. */
+    | { readonly kind: "note" | "form" | "clock" | "list" }
   );
 
 export type CardKind = CardDef["kind"];
 
-export type SectionId = "full" | "anim" | "stack" | "mini";
+export type SectionId = "full" | "anim" | "stack" | "mini" | "lab";
 
-export const SECTION_IDS: readonly SectionId[] = ["full", "anim", "stack", "mini"];
+/**
+ * Sections on the page. The Lab section, cards with editable, live and scrolling content to
+ * test renderers against, is added with `?lab`.
+ */
+export const SECTION_IDS: readonly SectionId[] =
+  typeof location !== "undefined" && new URLSearchParams(location.search).has("lab")
+    ? ["full", "anim", "stack", "mini", "lab"]
+    : ["full", "anim", "stack", "mini"];
 
 /** Sections whose deck starts as a single pile rather than one card per slot. */
 export const PILED_SECTIONS: ReadonlySet<SectionId> = new Set(["stack"]);
@@ -201,6 +210,12 @@ export const DECKS: Readonly<Record<SectionId, readonly CardDef[]>> = {
       fx: "orbit",
       label: "Temple cardlet with orbit",
     },
+  ],
+  lab: [
+    { id: "l-note", kind: "note", label: "Note with an editable title and text" },
+    { id: "l-form", kind: "form", label: "Form with checkboxes, a select and a slider" },
+    { id: "l-clock", kind: "clock", fx: "trace", label: "Clock and counter updated every second" },
+    { id: "l-list", kind: "list", label: "Scrolling list with mixed scripts" },
   ],
 };
 
