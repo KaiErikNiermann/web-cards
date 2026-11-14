@@ -5,6 +5,7 @@
 // clock) is snapshotted again after each change.
 
 import { INTERACTIVE, type CardRefs } from "../dom";
+import { hasDomParts, isInDomPart, markDomParts } from "./bake";
 import { LIVE_TEXT } from "./livetext";
 
 export interface LiveOptions {
@@ -33,12 +34,16 @@ const QUIET_MS = 5000;
 
 const isInDom = (c: CardRefs): boolean => c.slot.dataset.glDom !== undefined;
 
+/** The element a mutation happened in. */
+const elementOf = (r: MutationRecord): Element | null =>
+  r.target instanceof Element ? r.target : r.target.parentElement;
+
+/** Whether an event or mutation happened inside a DOM part, which the snapshot leaves out. */
+const isInPart = (el: EventTarget | Element | null): boolean => el instanceof Element && isInDomPart(el);
+
 /** Whether these mutations touched only live-text elements. */
 const isLiveTextOnly = (records: readonly MutationRecord[]): boolean =>
-  records.every((r) => {
-    const el = r.target instanceof Element ? r.target : r.target.parentElement;
-    return Boolean(el?.closest(LIVE_TEXT));
-  });
+  records.every((r) => Boolean(elementOf(r)?.closest(LIVE_TEXT)));
 
 export function watchLiveFaces(o: LiveOptions): void {
   const pending = new Map<string, ReturnType<typeof setTimeout>>();
@@ -84,7 +89,10 @@ export function watchLiveFaces(o: LiveOptions): void {
   for (const c of o.cards) {
     const face = c.card.querySelector<HTMLElement>("[data-face]");
     if (!face) continue;
-    const isInteractive = face.querySelector(INTERACTIVE) !== null;
+    // DOM parts (bake.ts) show through a ghost face; the rest of it stays invisible.
+    markDomParts(c.card);
+    if (hasDomParts(face)) c.slot.dataset.glParts = "";
+    const isInteractive = face.querySelector(INTERACTIVE) !== null || hasDomParts(face);
     if (isInteractive) {
       // The face stays laid out but invisible (`data-gl-ghost`), so a press lands on the real
       // control: the slider moves, the field takes focus and the caret goes where the finger
@@ -94,7 +102,8 @@ export function watchLiveFaces(o: LiveOptions): void {
         "pointerdown",
         (e) => {
           if (!o.isOn() || isInDom(c)) return;
-          if (e.target instanceof Element && e.target.closest(INTERACTIVE)) enter(c);
+          // A DOM part is already live; only the snapshotted controls need the DOM.
+          if (e.target instanceof Element && e.target.closest(INTERACTIVE) && !isInPart(e.target)) enter(c);
         },
         { capture: true },
       );
@@ -137,7 +146,10 @@ export function watchLiveFaces(o: LiveOptions): void {
     };
     // A change only to live text (livetext.ts) is redrawn in place: no snapshot, and the card
     // stays with WebGL however often it changes.
-    new MutationObserver((records) => {
+    new MutationObserver((all) => {
+      // DOM parts are not in the snapshot: their changes need no new one.
+      const records = all.filter((r) => !isInPart(elementOf(r)));
+      if (records.length === 0) return;
       if (o.isOn() && !isInDom(c) && isLiveTextOnly(records) && o.hasPatchedText(c.def.id)) return;
       onChange();
     }).observe(face, {
@@ -146,7 +158,10 @@ export function watchLiveFaces(o: LiveOptions): void {
       characterData: true,
       attributes: true,
     });
-    face.addEventListener("input", onChange);
-    face.addEventListener("change", onChange);
+    for (const type of ["input", "change"]) {
+      face.addEventListener(type, (e) => {
+        if (!isInPart(e.target)) onChange();
+      });
+    }
   }
 }

@@ -148,6 +148,9 @@
        by the DOM with a raised z otherwise covered a showcased card. */
     --z-gl-overlay: 10001;
 
+    /* A card with DOM parts (data-bake="none") while the overlay canvas draws it: above it. */
+    --z-gl-top: 10002;
+
     /* Card material layers */
     --shade: rgb(0 0 0);
     --glint: rgb(255 255 255);

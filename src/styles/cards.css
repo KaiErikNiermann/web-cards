@@ -546,6 +546,37 @@
     filter: none;
   }
 
+  /* DOM parts of a face (data-bake="none", src/gl/bake.ts) show through the ghost: the
+     elements holding them (data-gl-path) hide only their own paint, and their other children
+     (data-gl-veil) stay ghosts.
+     Not while the whole card is drawn by the DOM (data-gl-dom). */
+  .slot[data-gl-ghost]:not([data-gl-dom]) [data-gl-path] {
+    opacity: 1;
+    visibility: hidden;
+  }
+
+  .slot[data-gl-ghost]:not([data-gl-dom]) [data-gl-veil] {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  .slot[data-gl-ghost]:not([data-gl-dom]) [data-bake="none"] {
+    visibility: visible;
+  }
+
+  /* Its DOM copy is a ghost apart from the DOM parts, so it needs no 3D context of its own;
+     `flat` still applies the card's tilt through the slot's perspective. In a preserve-3d
+     card, Firefox 159 painted a textarea DOM part at the card's scale of 1 while the showcase
+     had it at 2.24; Chromium painted it at 2.24. */
+  .slot[data-gl-parts]:not([data-gl-dom]) .card {
+    transform-style: flat;
+  }
+
+  /* A card with DOM parts drawn on the overlay canvas (dragged or showcased) rises above it. */
+  .slot[data-gl-top] {
+    z-index: var(--z-gl-top);
+  }
+
   /* A card someone is typing into or scrolling (src/gl/live.ts) is drawn by the DOM meanwhile;
      `initial` makes the custom properties invalid, so the fallbacks apply again. It draws flat
      (no material layers or face filter): every input repainted the face under blend layers. */

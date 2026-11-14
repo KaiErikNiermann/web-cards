@@ -12,6 +12,7 @@ import type { CardRefs, SectionRefs } from "../dom";
 import type { CardTable, Point } from "../physics";
 import type { ShowFrame } from "../showcase";
 import { cardFrame, materialView, type CardFrame, type MaterialView } from "../view";
+import { hasDomParts } from "./bake";
 import type { FaceImages, FaceSource } from "./faces";
 import { watchLiveFaces } from "./live";
 import { paint as paintText } from "./livetext";
@@ -257,6 +258,11 @@ export function mountGl(o: GlOptions): GlRenderer {
   let statsAt = 0;
   let isForced = true;
   let loop = 0;
+  /** Cards with DOM parts (bake.ts): on the overlay canvas their slot rises above it. */
+  const withDomParts = cards.filter((c) => {
+    const face = c.card.querySelector("[data-face]");
+    return face !== null && hasDomParts(face);
+  });
 
   const images = (id: string): CardImages | undefined => {
     const f = faces.get(id);
@@ -284,7 +290,8 @@ export function mountGl(o: GlOptions): GlRenderer {
       const canvas = document.createElement("canvas");
       canvas.className = "gl-surface";
       canvas.setAttribute("aria-hidden", "true");
-      s.row.append(canvas);
+      // First in the row: the slots paint over it, so DOM parts of faces (bake.ts) show.
+      s.row.prepend(canvas);
       const ss: SectionSurface = {
         id: s.id,
         row: s.row,
@@ -547,6 +554,7 @@ export function mountGl(o: GlOptions): GlRenderer {
     totals.overlayCards += list.length;
     if (list.length > 0 || ov.drawn.size > 0) {
       ov.drawn = new Set(list.map((p) => p.c.def.id));
+      for (const c of withDomParts) c.slot.toggleAttribute("data-gl-top", ov.drawn.has(c.def.id));
       const rr = root.getBoundingClientRect();
       paint(ov.surface, list, { x: -rr.left / sc, y: -rr.top / sc }, ov.view, ctx);
     }

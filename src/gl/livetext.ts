@@ -6,8 +6,8 @@
 // A face snapshot took about 230 ms on the phone (the fonts are embedded and decoded with every
 // SVG); redrawing a line of text is a fill and an upload of its rectangle.
 
-/** Marks an element whose text changes: its text is drawn live, not snapshotted. */
-export const LIVE_TEXT = "[data-live-text]";
+/** Marks an element whose text changes: its text is drawn live, not snapshotted (bake.ts). */
+export { LIVE as LIVE_TEXT } from "./bake";
 
 export interface LiveText {
   /** The element on the page whose text is drawn. */
