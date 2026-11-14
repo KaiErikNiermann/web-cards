@@ -1,0 +1,35 @@
+/* The performance overlay: fixed over the page's top-start corner, never taking pointer
+   input, in the dense monospace of a frame-time HUD. Rows are label + value pairs. */
+
+@layer components {
+  .hud {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--hud-gap) var(--hud-col-gap);
+    background: var(--color-hud-bg);
+    border-radius: var(--radius-control);
+    box-sizing: border-box;
+    color: var(--color-hud-value);
+    font-family: var(--font-mono);
+    font-size: var(--text-ui);
+    font-variant-numeric: tabular-nums;
+    inline-size: var(--hud-w);
+    inset-block-start: var(--hud-inset);
+    inset-inline-start: var(--hud-inset);
+    line-height: var(--leading-label);
+    padding: var(--hud-pad);
+    pointer-events: none;
+    position: fixed;
+    z-index: var(--z-hud);
+  }
+
+  .hud[hidden] {
+    display: none;
+  }
+
+  .hud-graph {
+    block-size: var(--hud-graph-h);
+    grid-column: 1 / -1;
+    inline-size: 100%;
+  }
+}

@@ -38,6 +38,10 @@
                   <input type="checkbox" class="m-0 size-4.5 accent-accent" data-ret />
                   Snap to slots (row reflows around the drag)
                 </label>
+                <label class="flex min-h-8 cursor-pointer items-center gap-2.5 text-ui text-label">
+                  <input type="checkbox" class="m-0 size-4.5 accent-accent" data-hud-toggle />
+                  Performance overlay <kbd class="font-mono text-meta text-faint">Shift F12</kbd>
+                </label>
                 <button
                   type="button"
                   class="min-h-11 cursor-pointer rounded-control border border-btn-edge bg-btn px-3.5 font-sans text-ui leading-none font-medium text-ink hover:bg-btn-hover"
@@ -60,6 +64,20 @@
         </div>
       </div>
     </div>
+
+    <!-- Performance overlay: rows of label and value; see src/hud.ts for what each measures -->
+    <aside class="hud" aria-label="Performance overlay" data-hud hidden>
+      <span class="text-hud-gpu">GPU</span><span class="truncate" data-hud-gpu></span>
+      <span class="text-hud-gpu"></span><span class="text-faint">utilisation: no web API</span>
+      <span class="text-hud-cpu">CPU</span><span data-hud-cpu></span>
+      <span class="text-hud-cpu">LoAF</span><span data-hud-loaf></span>
+      <span class="text-hud-ram">RAM</span><span data-hud-ram></span>
+      <span class="text-hud-ram">DOM</span><span data-hud-dom></span>
+      <span class="text-hud-fps">FPS</span><span><b class="font-semibold" data-hud-fps></b> · <span data-hud-ft></span></span>
+      <canvas class="hud-graph" aria-hidden="true" data-hud-graph></canvas>
+      <span class="text-hud-fps">FT</span><span data-hud-low></span>
+      <span class="text-hud-app">APP</span><span data-hud-app></span>
+    </aside>
 
     <!-- Controls -->
     <template id="tpl-chip">

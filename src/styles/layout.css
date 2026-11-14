@@ -7,6 +7,9 @@
     box-sizing: border-box;
     color: var(--color-ink);
     font-family: var(--font-sans);
+
+    /* Contains the cards' z-indices, so the performance overlay sits above them all. */
+    isolation: isolate;
     min-block-size: 100vb;
 
     /* Same as the export's overflow-x: hidden (the other axis computes to auto). */

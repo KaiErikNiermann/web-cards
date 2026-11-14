@@ -28,6 +28,15 @@
   --color-btn-hover: #333944;
   --color-white: #fff;
 
+  /* Performance overlay: one hue per row kind, as in MangoHud */
+  --color-hud-bg: rgb(10 12 16 / 78%);
+  --color-hud-value: #e9ecf1;
+  --color-hud-fps: #e3b261;
+  --color-hud-cpu: #79c0ff;
+  --color-hud-gpu: #7ee787;
+  --color-hud-ram: #ff9bd2;
+  --color-hud-app: #c3c8d0;
+
   /* Card faces */
   --color-paper: #f7f3ea;
   --color-glyph: #1b1b1f;
@@ -101,6 +110,19 @@
     --range-height: 28px;
     --range-gap: 6px;
     --check-size: 18px;
+
+    /* Performance overlay */
+    --hud-w: min(19rem, 100vw - 16px);
+    --hud-inset: 8px;
+    --hud-pad: 8px 10px;
+    --hud-gap: 2px;
+    --hud-col-gap: 10px;
+    --hud-graph-h: 44px;
+    --hud-line: #e3b261;
+    --hud-budget: rgb(126 231 135 / 45%);
+
+    /* The page root is its own stacking context, so the overlay needs only to follow it. */
+    --z-hud: 1;
 
     /* Card material layers */
     --shade: rgb(0 0 0);
