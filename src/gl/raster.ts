@@ -112,6 +112,28 @@ function copyScroll(src: HTMLElement, clone: HTMLElement): void {
   }
 }
 
+/** Whether `el`'s own text (not its children's) sits on one line. */
+function isOneLine(el: Element): boolean {
+  const range = document.createRange();
+  const tops = new Set<number>();
+  for (const node of el.childNodes) {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) continue;
+    range.selectNodeContents(node);
+    for (const r of range.getClientRects()) if (r.width > 0) tops.add(Math.round(r.top));
+  }
+  return tops.size === 1;
+}
+
+/**
+ * Keeps text that is on one line in the laid-out clone on one line in the snapshot. The
+ * snapshot fixes each box at its width in the page, and the SVG image lays text out a little
+ * wider on some devices (Firefox for Android): a title that just fit wrapped under its plate.
+ */
+function lockLines(clone: HTMLElement): void {
+  const oneLine = [clone, ...clone.querySelectorAll<HTMLElement>("*")].filter((el) => isOneLine(el));
+  for (const el of oneLine) el.style.setProperty("white-space", "nowrap");
+}
+
 /** Gap between atlas cells, in artboard px, so mipmaps of one face never sample the next. */
 const CELL_GAP = 4;
 
@@ -167,6 +189,7 @@ export async function atlas(
   // elements still pair up with the face's.
   for (const { faceEl, cell } of cells) {
     copyScroll(faceEl, cell);
+    lockLines(cell);
     for (const el of cell.querySelectorAll("*")) if (isLeftOut(el)) el.remove();
   }
   // Text that changes is left out of the snapshot and drawn live (livetext.ts).
