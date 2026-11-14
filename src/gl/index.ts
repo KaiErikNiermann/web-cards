@@ -263,6 +263,7 @@ export function mountGl(o: GlOptions): GlRenderer {
     const face = c.card.querySelector("[data-face]");
     return face !== null && hasDomParts(face);
   });
+  const sectionsWithParts = new Set(withDomParts.map((c) => c.sec));
 
   const images = (id: string): CardImages | undefined => {
     const f = faces.get(id);
@@ -436,11 +437,17 @@ export function mountGl(o: GlOptions): GlRenderer {
     return { x: at.x - t.surfaceInline, y: at.y - t.surfaceBlock };
   }
 
-  /** The section canvas that fully contains the card's quad; undefined means the overlay. */
+  /**
+   * The section canvas that fully contains the card's quad; undefined means the overlay. The
+   * showcased card, and a moving card in a row with DOM parts (bake.ts), always go on the
+   * overlay: a row's canvas is under its slots, so DOM parts would cover them there.
+   */
   function surfaceFor(
     p: Placed,
     origins: ReadonlyMap<SectionSurface, Point>,
   ): SectionSurface | undefined {
+    if (p.fr.isShown) return undefined;
+    if (table.ph(p.c.def.id).live && sectionsWithParts.has(p.c.sec)) return undefined;
     const own = sections.find((s) => s.id === p.c.sec);
     const at = own && origins.get(own);
     if (!own || !at) return undefined;
@@ -554,7 +561,10 @@ export function mountGl(o: GlOptions): GlRenderer {
     totals.overlayCards += list.length;
     if (list.length > 0 || ov.drawn.size > 0) {
       ov.drawn = new Set(list.map((p) => p.c.def.id));
-      for (const c of withDomParts) c.slot.toggleAttribute("data-gl-top", ov.drawn.has(c.def.id));
+      // Only the topmost card on the overlay rises above it with its DOM parts; one below
+      // another overlay card stays under the canvas, which draws the card above it.
+      const topId = list.at(-1)?.c.def.id;
+      for (const c of withDomParts) c.slot.toggleAttribute("data-gl-top", c.def.id === topId);
       const rr = root.getBoundingClientRect();
       paint(ov.surface, list, { x: -rr.left / sc, y: -rr.top / sc }, ov.view, ctx);
     }
