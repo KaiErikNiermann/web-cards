@@ -22,7 +22,7 @@ import {
 } from "./dom";
 import { Hold } from "./gesture";
 import { CardTable, type Pile, type Point } from "./physics";
-import { cardView, materialView, setVars } from "./view";
+import { cardView, materialView, setAttr, setHidden, setText, setVars } from "./view";
 
 const root = must(document, "[data-root]", HTMLElement);
 const table = new CardTable();
@@ -158,23 +158,23 @@ function pileLabel(sec: SectionId): string {
 
 function renderSections(): void {
   for (const s of sections) {
-    s.note.textContent = sectionNote(s);
+    setText(s.note, sectionNote(s));
     const gap = s.id === "mini" ? live.geo.miniGap : live.geo.gap;
     setVars(s.row, { "--row-gap": `${String(gap)}px` });
     const isShown = hasPile(s.id);
-    s.stackLabel.hidden = !isShown;
-    if (isShown) s.stackLabel.textContent = pileLabel(s.id);
+    setHidden(s.stackLabel, !isShown);
+    if (isShown) setText(s.stackLabel, pileLabel(s.id));
   }
 }
 
 function renderControls(): void {
   const m = table.m;
-  presetLabel.textContent = m.preset ? PRESETS[m.preset].label : "custom";
-  for (const { id, el } of chips) el.setAttribute("aria-pressed", String(m.preset === id));
+  setText(presetLabel, m.preset ? PRESETS[m.preset].label : "custom");
+  for (const { id, el } of chips) setAttr(el, "aria-pressed", String(m.preset === id));
   for (const { def, input, value } of sliders) {
     const v = m[def.key];
     if (input.valueAsNumber !== v) input.value = String(v);
-    value.textContent = def.text(v);
+    setText(value, def.text(v));
   }
   retToggle.checked = m.ret;
 }
@@ -183,13 +183,18 @@ function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>): void {
   const p = table.ph(c.def.id);
   const v = cardView(c.def, p, live.geo, mat);
   table.meta.set(c.def.id, { sec: c.sec, w: v.w, h: v.h, step: v.step, pad: v.pad });
-  setVars(c.slot, v.vars);
+  setVars(c.slot, v.vars.slot);
+  setVars(c.card, v.vars.card);
+  setVars(c.foil, v.vars.foil);
+  setVars(c.glare, v.vars.glare);
+  setVars(c.hot, v.vars.hot);
+  if (c.art) setVars(c.art, v.vars.art);
   c.slot.toggleAttribute("data-pile", p.pile);
   c.slot.toggleAttribute("data-live", p.live);
   c.slot.toggleAttribute("data-still", offscreen.has(c.def.id) || table.isBuried(c.def.id));
-  c.grain.hidden = mat.grainHidden;
-  c.foil.hidden = v.foilHidden;
-  c.hot.hidden = v.hotHidden;
+  setHidden(c.grain, mat.grainHidden);
+  setHidden(c.foil, v.foilHidden);
+  setHidden(c.hot, v.hotHidden);
   const vb = `0 0 ${String(v.w)} ${String(v.h)}`;
   if (!c.svg || c.svg.getAttribute("viewBox") === vb) return;
   c.svg.setAttribute("viewBox", vb);

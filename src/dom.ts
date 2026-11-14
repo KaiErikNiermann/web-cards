@@ -39,7 +39,10 @@ export interface CardRefs {
   readonly card: HTMLElement;
   readonly grain: HTMLElement;
   readonly foil: HTMLElement;
+  readonly glare: HTMLElement;
   readonly hot: HTMLElement;
+  /** The parallax art window, on faces that have one. */
+  readonly art: HTMLElement | undefined;
   readonly svg: SVGSVGElement | undefined;
   readonly outlines: readonly SVGRectElement[];
 }
@@ -113,7 +116,9 @@ function buildCard(c: CardDef, sec: SectionId, i: number): CardRefs {
     card,
     grain: must(frag, "[data-grain]", HTMLElement),
     foil: must(frag, "[data-foil]", HTMLElement),
+    glare: must(frag, "[data-glare]", HTMLElement),
     hot: must(frag, "[data-hot]", HTMLElement),
+    art: frag.querySelector<HTMLElement>(".par") ?? undefined,
     svg,
     outlines: svg ? [...svg.querySelectorAll("rect")] : [],
   };

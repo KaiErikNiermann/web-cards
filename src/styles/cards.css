@@ -3,6 +3,122 @@
    material (--m-*). Every formula here is the export's inline style, moved into CSS. */
 
 @layer components {
+  /* Per-frame properties, each written on the one element that reads it (view.ts CardVars).
+     Registered as non-inherited, so changing one restyles that element, not its subtree. */
+  @property --tx {
+    inherits: false;
+    initial-value: 0;
+    syntax: "<length>";
+  }
+
+  @property --ty {
+    inherits: false;
+    initial-value: 0;
+    syntax: "<length>";
+  }
+
+  @property --z {
+    inherits: false;
+    initial-value: 0;
+    syntax: "<integer>";
+  }
+
+  @property --rx {
+    inherits: false;
+    initial-value: 0deg;
+    syntax: "<angle>";
+  }
+
+  @property --ry {
+    inherits: false;
+    initial-value: 0deg;
+    syntax: "<angle>";
+  }
+
+  @property --rz {
+    inherits: false;
+    initial-value: 0deg;
+    syntax: "<angle>";
+  }
+
+  @property --skew {
+    inherits: false;
+    initial-value: 0deg;
+    syntax: "<angle>";
+  }
+
+  @property --scale {
+    inherits: false;
+    initial-value: 1;
+    syntax: "<number>";
+  }
+
+  @property --lift {
+    inherits: false;
+    initial-value: 0;
+    syntax: "<number>";
+  }
+
+  @property --art-x {
+    inherits: false;
+    initial-value: 0;
+    syntax: "<length>";
+  }
+
+  @property --art-y {
+    inherits: false;
+    initial-value: 0;
+    syntax: "<length>";
+  }
+
+  @property --gx {
+    inherits: false;
+    initial-value: 30%;
+    syntax: "<percentage>";
+  }
+
+  @property --gy {
+    inherits: false;
+    initial-value: 18%;
+    syntax: "<percentage>";
+  }
+
+  @property --glare-angle {
+    inherits: false;
+    initial-value: 160deg;
+    syntax: "<angle>";
+  }
+
+  @property --glare-op {
+    inherits: false;
+    initial-value: 0.25;
+    syntax: "<number>";
+  }
+
+  @property --hot-op {
+    inherits: false;
+    initial-value: 0;
+    syntax: "<number>";
+  }
+
+  @property --foil-op {
+    inherits: false;
+    initial-value: 0;
+    syntax: "<number>";
+  }
+
+  @property --foil-x {
+    inherits: false;
+    initial-value: 50%;
+    syntax: "<percentage>";
+  }
+
+  @property --foil-y {
+    inherits: false;
+    initial-value: 50%;
+    syntax: "<percentage>";
+  }
+
   @keyframes orbit {
     from {
       transform: translate(-50%, -50%) rotate(0turn);

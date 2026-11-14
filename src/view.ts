@@ -60,8 +60,22 @@ export function materialView(m: Material): MaterialView {
   };
 }
 
+/**
+ * Per-frame custom properties, grouped by the element that reads them. Each group is written
+ * on that element only; with the properties registered as non-inherited (cards.css), a change
+ * restyles that element and not the card's whole face.
+ */
+export interface CardVars {
+  readonly slot: Vars;
+  readonly card: Vars;
+  readonly art: Vars;
+  readonly foil: Vars;
+  readonly glare: Vars;
+  readonly hot: Vars;
+}
+
 export interface CardView {
-  readonly vars: Vars;
+  readonly vars: CardVars;
   readonly foilHidden: boolean;
   readonly hotHidden: boolean;
   /** Card size in layout px, for the physics' push radii and the trace outline. */
@@ -87,26 +101,28 @@ export function cardSize(c: CardDef, g: Geometry): CardSize {
   return { w: g.mw, h: g.mh, step: Math.round(g.step * k), pad: Math.round(g.liftPad * k) };
 }
 
-function placement(p: Phys, pad: number): Vars {
-  if (p.pile) {
-    return {
-      "--tx": px(p.bx + p.x + p.ox),
-      "--ty": px(p.by + p.y + p.oy - p.lift * pad),
-      "--z": String(p.drag ? Z_DRAGGING : p.pz),
-      "--rz": deg(p.rot),
-      "--skew": "0deg",
-      "--scale": String(f(1 + p.lift * 0.05)),
-      "--cursor": "grab",
-    };
-  }
+/** Slot translation and the card's own transform and lift, split by consuming element. */
+function placement(p: Phys, pad: number): { slot: Vars; card: Vars } {
+  const ty = p.pile ? p.by + p.y + p.oy - p.lift * pad : p.by + p.y + p.oy;
+  const rest = p.pile ? p.pz : p.z;
+  const z = p.drag ? Z_DRAGGING : rest;
+  const slot = { "--tx": px(p.bx + p.x + p.ox), "--ty": px(ty), "--z": String(z) };
+  const card = p.pile
+    ? {
+        "--rz": deg(p.rot),
+        "--skew": "0deg",
+        "--scale": String(f(1 + p.lift * 0.05)),
+        "--cursor": "grab",
+      }
+    : {
+        "--rz": deg(p.rot),
+        "--skew": deg(-p.rot * 0.35),
+        "--scale": String(f(1 + p.lift * 0.045 - p.sink * 0.14)),
+        "--cursor": p.drag ? "grabbing" : "grab",
+      };
   return {
-    "--tx": px(p.bx + p.x + p.ox),
-    "--ty": px(p.by + p.y + p.oy),
-    "--z": String(p.drag ? Z_DRAGGING : p.z),
-    "--rz": deg(p.rot),
-    "--skew": deg(-p.rot * 0.35),
-    "--scale": String(f(1 + p.lift * 0.045 - p.sink * 0.14)),
-    "--cursor": p.drag ? "grabbing" : "grab",
+    slot,
+    card: { ...card, "--rx": deg(p.rx), "--ry": deg(p.ry), "--lift": String(f(p.lift)) },
   };
 }
 
@@ -115,6 +131,8 @@ export function cardView(c: CardDef, p: Phys, g: Geometry, mat: MaterialView): C
   const face = c.mini ? FACE.mini : FACE.full;
   const foilOp = mat.foil * (0.22 + 0.6 * p.h);
   const hotOp = p.h * (mat.hotLobe ? 1 : 0);
+  const { slot, card } = placement(p, pad);
+  const glint = { "--gx": pct(p.gx), "--gy": pct(p.gy) };
   return {
     w,
     h,
@@ -124,27 +142,29 @@ export function cardView(c: CardDef, p: Phys, g: Geometry, mat: MaterialView): C
     foilHidden: foilOp < 0.01,
     hotHidden: hotOp < 0.01,
     vars: {
-      ...placement(p, pad),
-      "--w": px(w),
-      "--h": px(h),
-      "--persp": px(w * 4),
-      "--r": px(face.radius),
-      "--rx": deg(p.rx),
-      "--ry": deg(p.ry),
-      "--lift": String(f(p.lift)),
-      "--bw": px(face.bw),
-      "--bh": px(face.bh),
-      "--face-k": String(f((w / face.bw) * 1000) / 1000),
-      "--art-x": px(-p.ry * face.parallax),
-      "--art-y": px(p.rx * face.parallax),
-      "--gx": pct(p.gx),
-      "--gy": pct(p.gy),
-      "--foil-op": String(f(foilOp)),
-      "--foil-x": pct(50 + (p.px - 0.5) * 90 * p.h + p.rot * 3 + p.ry * 2),
-      "--foil-y": pct(50 + (p.py - 0.5) * 90 * p.h + p.rx * 2),
-      "--glare-angle": deg(160 + p.ry * 3),
-      "--glare-op": String(f(0.25 + 0.75 * p.h)),
-      "--hot-op": String(f(hotOp)),
+      slot: {
+        ...slot,
+        "--w": px(w),
+        "--h": px(h),
+        "--persp": px(w * 4),
+        "--r": px(face.radius),
+        "--bw": px(face.bw),
+        "--bh": px(face.bh),
+        "--face-k": String(f((w / face.bw) * 1000) / 1000),
+      },
+      card,
+      art: { "--art-x": px(-p.ry * face.parallax), "--art-y": px(p.rx * face.parallax) },
+      foil: {
+        "--foil-op": String(f(foilOp)),
+        "--foil-x": pct(50 + (p.px - 0.5) * 90 * p.h + p.rot * 3 + p.ry * 2),
+        "--foil-y": pct(50 + (p.py - 0.5) * 90 * p.h + p.rx * 2),
+      },
+      glare: {
+        ...glint,
+        "--glare-angle": deg(160 + p.ry * 3),
+        "--glare-op": String(f(0.25 + 0.75 * p.h)),
+      },
+      hot: { ...glint, "--hot-op": String(f(hotOp)) },
     },
   };
 }
@@ -163,4 +183,19 @@ export function setVars(el: HTMLElement, vars: Vars): void {
     last.set(k, v);
     el.style.setProperty(k, v);
   }
+}
+
+/** Sets `el`'s text only when it differs: rewriting equal text still replaces the text node. */
+export function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) el.textContent = text;
+}
+
+/** Sets `el.hidden` only when it differs. */
+export function setHidden(el: HTMLElement, isHidden: boolean): void {
+  if (el.hidden !== isHidden) el.hidden = isHidden;
+}
+
+/** Sets an attribute only when its value differs. */
+export function setAttr(el: Element, name: string, value: string): void {
+  if (el.getAttribute(name) !== value) el.setAttribute(name, value);
 }
