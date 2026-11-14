@@ -1,6 +1,6 @@
 // Performance overlay in the manner of MangoHud: frame rate, frame times and a frametime graph,
 // the app's own JS time per frame, long animation frames, memory and the GPU's name. It runs
-// its own rAF loop only while shown, and redraws its text four times a second.
+// its own rAF loop only while shown, and redraws its text and graph four times a second.
 //
 // What a page cannot see, it says so: there is no web API for system CPU or GPU utilisation,
 // so "CPU" is the share of each frame spent in this app's physics and render, and the GPU row
@@ -70,18 +70,13 @@ export interface HudFields {
   readonly graph: HTMLCanvasElement;
 }
 
-/** Live app counters the overlay shows beside the browser's. */
-export interface AppStats {
-  /** Cards drawn with their own 3D layer this frame. */
-  readonly live: number;
-  /** Whether the simulation loop is running. */
-  readonly running: boolean;
-}
+/** The APP row: a short line of the page's own counters, read four times a second. */
+export type AppStats = () => string;
 
 export class Hud {
   private readonly el: HTMLElement;
   private readonly f: HudFields;
-  private readonly stats: () => AppStats;
+  private readonly stats: AppStats;
   private readonly frames: number[] = [];
   private readonly stamps: number[] = [];
   private readonly loafs: LongFrame[] = [];
@@ -93,9 +88,12 @@ export class Hud {
   private lastText = 0;
   private gpu: string | undefined;
   private colours = { line: "", budget: "" };
+  /** Graph size in device px, kept by a ResizeObserver so drawing never forces a layout. */
+  private graphSize = { w: 0, h: 0 };
+  private sizer: ResizeObserver | undefined;
   private observer: PerformanceObserver | undefined;
 
-  constructor(el: HTMLElement, fields: HudFields, stats: () => AppStats) {
+  constructor(el: HTMLElement, fields: HudFields, stats: AppStats) {
     this.el = el;
     this.f = fields;
     this.stats = stats;
@@ -127,6 +125,17 @@ export class Hud {
       budget: css.getPropertyValue("--hud-budget"),
     };
     setText(this.f.gpu, this.gpu);
+    this.sizer = new ResizeObserver(([entry]) => {
+      const box = entry?.devicePixelContentBoxSize[0];
+      const dpr = window.devicePixelRatio || 1;
+      this.graphSize = box
+        ? { w: box.inlineSize, h: box.blockSize }
+        : {
+            w: Math.round((entry?.contentRect.width ?? 0) * dpr),
+            h: Math.round((entry?.contentRect.height ?? 0) * dpr),
+          };
+    });
+    this.sizer.observe(this.f.graph);
     this.observeLongFrames();
     this.frames.length = 0;
     this.stamps.length = 0;
@@ -136,6 +145,8 @@ export class Hud {
 
   private stop(): void {
     cancelAnimationFrame(this.raf);
+    this.sizer?.disconnect();
+    this.sizer = undefined;
     this.observer?.disconnect();
     this.observer = undefined;
   }
@@ -165,9 +176,10 @@ export class Hud {
       }
     }
     this.last = now;
-    this.drawGraph();
     if (now - this.lastText < TEXT_MS) return;
-
+    // The graph redraws with the text, not every frame: a canvas updated every frame took
+    // Firefox's software compositor from 60 to 24 fps with 60 compositor animations on screen.
+    this.drawGraph();
     this.text(now);
     this.lastText = now;
   };
@@ -205,16 +217,15 @@ export class Hud {
     const deviceMemory: unknown = Reflect.get(navigator, "deviceMemory");
     const dev = typeof deviceMemory === "number" ? ` · device ${String(deviceMemory)} GB` : "";
     setText(f.dom, `${String(document.querySelectorAll("*").length)} nodes${dev}`);
-    const s = this.stats();
-    setText(f.app, `${String(s.live)} live cards · sim ${s.running ? "running" : "idle"}`);
+    setText(f.app, this.stats());
   }
 
   /** Frametime graph: one bar per frame, newest at the right, with the 60 Hz budget line. */
   private drawGraph(): void {
     const c = this.f.graph;
     const dpr = window.devicePixelRatio || 1;
-    const w = Math.round(c.clientWidth * dpr);
-    const h = Math.round(c.clientHeight * dpr);
+    const { w, h } = this.graphSize;
+    if (w === 0 || h === 0) return;
     if (c.width !== w || c.height !== h) {
       c.width = w;
       c.height = h;
@@ -236,4 +247,98 @@ export class Hud {
     }
     g.stroke();
   }
+}
+
+/** Label class per row kind, written out in full so Tailwind's source scan finds each one. */
+const KIND = {
+  gpu: "text-hud-gpu",
+  cpu: "text-hud-cpu",
+  ram: "text-hud-ram",
+  fps: "text-hud-fps",
+  app: "text-hud-app",
+} as const;
+
+/** One label + value row of the overlay. */
+function row(
+  parent: HTMLElement,
+  kind: keyof typeof KIND,
+  label: string,
+  value: HTMLElement,
+): HTMLElement {
+  const l = document.createElement("span");
+  l.className = KIND[kind];
+  l.textContent = label;
+  parent.append(l, value);
+  return value;
+}
+
+const span = (className = ""): HTMLElement => {
+  const el = document.createElement("span");
+  el.className = className;
+  return el;
+};
+
+/** Builds the overlay (hidden) at the end of `parent` and returns it. */
+export function mountHud(parent: HTMLElement, stats: AppStats): Hud {
+  const el = document.createElement("aside");
+  el.className = "hud";
+  el.setAttribute("aria-label", "Performance overlay");
+  el.hidden = true;
+  const gpu = row(el, "gpu", "GPU", span("truncate"));
+  const note = row(el, "gpu", "", span("text-faint"));
+  note.textContent = "utilisation: no web API";
+  const cpu = row(el, "cpu", "CPU", span());
+  const loaf = row(el, "cpu", "LoAF", span());
+  const ram = row(el, "ram", "RAM", span());
+  const dom = row(el, "ram", "DOM", span());
+  const fpsLine = row(el, "fps", "FPS", span());
+  const fps = document.createElement("b");
+  fps.className = "font-semibold";
+  const ft = span();
+  fpsLine.append(fps, " · ", ft);
+  const graph = document.createElement("canvas");
+  graph.className = "hud-graph";
+  graph.setAttribute("aria-hidden", "true");
+  el.append(graph);
+  const low = row(el, "fps", "FT", span());
+  const app = row(el, "app", "APP", span());
+  parent.append(el);
+  return new Hud(el, { fps, ft, low, cpu, loaf, ram, dom, gpu, app, graph }, stats);
+}
+
+/**
+ * The overlay toggles from `checkbox`, from Shift+F12 (MangoHud's key) and from `?hud`; the
+ * choice is kept per viewer under `storageKey`. Without a stored choice it starts as `initial`.
+ */
+export function wireHudToggle(
+  hud: Hud,
+  options: { storageKey: string; checkbox?: HTMLInputElement; initial?: boolean },
+): void {
+  const set = (isShown: boolean): void => {
+    hud.show(isShown);
+    if (options.checkbox) options.checkbox.checked = isShown;
+    try {
+      localStorage.setItem(options.storageKey, isShown ? "1" : "0");
+    } catch {
+      // Storage can be blocked (private mode); the overlay just is not remembered.
+    }
+  };
+  let stored: string | undefined;
+  try {
+    stored = localStorage.getItem(options.storageKey) ?? undefined;
+  } catch {
+    // As above: nothing stored.
+  }
+  options.checkbox?.addEventListener("change", () => {
+    set(options.checkbox?.checked ?? false);
+  });
+  addEventListener("keydown", (e) => {
+    if (e.key !== "F12" || !e.shiftKey) return;
+    e.preventDefault();
+    set(!hud.shown);
+  });
+  const isWanted =
+    new URLSearchParams(location.search).has("hud") ||
+    (stored === undefined ? (options.initial ?? false) : stored === "1");
+  set(isWanted);
 }

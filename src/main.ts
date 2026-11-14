@@ -21,7 +21,7 @@ import {
   type SectionRefs,
 } from "./dom";
 import { Hold } from "./gesture";
-import { Hud } from "./hud";
+import { mountHud, wireHudToggle } from "./hud";
 import { CardTable, type Pile, type Point } from "./physics";
 import { cardView, materialView, setAttr, setHidden, setText, setVars } from "./view";
 
@@ -40,27 +40,10 @@ function countLive(): number {
   return n;
 }
 
-const hudToggle = must(root, "[data-hud-toggle]", HTMLInputElement);
-const hudEl = must(document, "[data-hud]", HTMLElement);
-const hud = new Hud(
-  hudEl,
-  {
-    fps: must(hudEl, "[data-hud-fps]", HTMLElement),
-    ft: must(hudEl, "[data-hud-ft]", HTMLElement),
-    low: must(hudEl, "[data-hud-low]", HTMLElement),
-    cpu: must(hudEl, "[data-hud-cpu]", HTMLElement),
-    loaf: must(hudEl, "[data-hud-loaf]", HTMLElement),
-    ram: must(hudEl, "[data-hud-ram]", HTMLElement),
-    dom: must(hudEl, "[data-hud-dom]", HTMLElement),
-    gpu: must(hudEl, "[data-hud-gpu]", HTMLElement),
-    app: must(hudEl, "[data-hud-app]", HTMLElement),
-    graph: must(hudEl, "[data-hud-graph]", HTMLCanvasElement),
-  },
-  () => ({
-    live: countLive(),
-    running: live.raf !== 0,
-  }),
-);
+const hud = mountHud(document.body, () => {
+  const state = live.raf === 0 ? "idle" : "running";
+  return `${String(countLive())} live cards · sim ${state}`;
+});
 /** Cards outside the viewport; their animations are held still. */
 const offscreen = new Set<string>();
 
@@ -493,44 +476,12 @@ function watchVisibility(): void {
   for (const c of cards) io.observe(c.slot);
 }
 
-const HUD_KEY = "web-cards:hud";
-
-/** Shows or hides the overlay and remembers the choice for this viewer. */
-function setHud(isShown: boolean): void {
-  hud.show(isShown);
-  hudToggle.checked = isShown;
-  try {
-    localStorage.setItem(HUD_KEY, isShown ? "1" : "0");
-  } catch {
-    // Storage can be blocked (private mode); the overlay just is not remembered.
-  }
-}
-
-function isHudWanted(): boolean {
-  if (new URLSearchParams(location.search).has("hud")) return true;
-  try {
-    return localStorage.getItem(HUD_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-/** The overlay toggles from the panel, from Shift+F12 (MangoHud's key) and from `?hud`. */
-function wireHud(): void {
-  hudToggle.addEventListener("change", () => {
-    setHud(hudToggle.checked);
-  });
-  addEventListener("keydown", (e) => {
-    if (e.key !== "F12" || !e.shiftKey) return;
-    e.preventDefault();
-    setHud(!hud.shown);
-  });
-  setHud(isHudWanted());
-}
-
 function wire(): void {
   for (const c of cards) wireCard(c);
-  wireHud();
+  wireHudToggle(hud, {
+    storageKey: "web-cards:hud",
+    checkbox: must(root, "[data-hud-toggle]", HTMLInputElement),
+  });
   watchVisibility();
   wirePileHover();
   for (const { id, el } of chips) {
