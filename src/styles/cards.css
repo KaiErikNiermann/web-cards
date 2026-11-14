@@ -190,6 +190,10 @@
     inset: 0;
     position: absolute;
     -webkit-tap-highlight-color: transparent;
+
+    /* `none` on touch screens too: under `pan-y`, Firefox for Android cancels the pointer as
+       soon as a finger reports a new contact size, so cards could not be dragged or tapped.
+       A page scroll has to start between cards. */
     touch-action: none;
     -webkit-touch-callout: none;
 
@@ -449,12 +453,6 @@
 
   .suit {
     font-variant-emoji: text;
-  }
-
-  @media (pointer: coarse) {
-    .card {
-      touch-action: pan-y;
-    }
   }
 
   /* Lit (hovered, dragged, lifted or tilted): the art and the two light layers become layers
