@@ -160,7 +160,9 @@ function quadBox(
 }
 
 /** The card's two box shadows (cards.css .card --_shadow), the top one first. */
-function shadows(fr: CardFrame): [number[], number[]] {
+/** The card's two box shadows (x, y, blur, alpha); a flat card has CSS's `data-flat` one. */
+function shadows(fr: CardFrame, isPlain = false): [number[], number[]] {
+  if (isPlain) return [[0, 1, 2, 0.45], [0, 0, 0, 0]];
   if (fr.isPile)
     return [
       [-3, 0, 8, 0.35],
@@ -398,7 +400,7 @@ export function mountGl(o: GlOptions): GlRenderer {
     // A card someone is interacting with is drawn by the DOM meanwhile (live.ts).
     if (!home || c.slot.dataset.glDom !== undefined) return undefined;
     const fr = cardFrame(c.def, table.view(c.def.id), geo, mat, o.show(c));
-    const sh = shadows(fr);
+    const sh = shadows(fr, isPlainCard(c, fr));
     const shadowReach = Math.max(
       ...sh.map(([x = 0, y = 0, blur = 0]) => Math.max(Math.abs(x), Math.abs(y)) + 1.5 * blur),
     );
@@ -427,7 +429,11 @@ export function mountGl(o: GlOptions): GlRenderer {
     const face = c.def.mini ? FACE.mini : FACE.full;
     const img = faces.get(c.def.id);
     const m = mat.params;
-    const [sa, sb] = shadows(fr);
+    // As CSS's `data-flat`: no material layers, face filter or blurred shadow.
+    const isPlain = isPlainCard(c, fr);
+    /** Material layers on (1) or off (0, a flat card). */
+    const layers = isPlain ? 0 : 1;
+    const [sa, sb] = shadows(fr, isPlain);
     const kb = c.def.kind === "cover" && c.def.fx === "live" ? kenBurns(time) : [1, 0, 0];
     return {
       id: c.def.id,
@@ -450,14 +456,14 @@ export function mountGl(o: GlOptions): GlRenderer {
         uArtOffset: [fr.artX, fr.artY],
         uKb: kb,
         uEmber: c.def.kind === "scene" ? emberAt(time) : 0,
-        uFilter: [m.contrast, m.saturate],
-        uGrainOp: m.grainOp,
-        uFoil: [fr.foilOp, fr.foilX, fr.foilY],
-        uGlare: [fr.glareOp, m.sheen, m.isSoftLight ? 1 : 0, t.spotSize],
+        uFilter: isPlain ? [1, 1] : [m.contrast, m.saturate],
+        uGrainOp: layers * m.grainOp,
+        uFoil: [layers * fr.foilOp, fr.foilX, fr.foilY],
+        uGlare: [layers * fr.glareOp, m.sheen, m.isSoftLight ? 1 : 0, t.spotSize],
         uLobe: [m.a1, m.a1Mid, m.r1, m.r2],
         uSpot: [fr.spotX, fr.spotY],
-        uHot: [fr.hotOp, m.hotA, m.hotR],
-        uEdge: [m.edge, m.edgeTop],
+        uHot: [layers * fr.hotOp, m.hotA, m.hotR],
+        uEdge: [layers * m.edge, layers * m.edgeTop],
         uShadowA: sa,
         uShadowB: sb,
         uSweep: c.def.fx === "live" ? sweepAt(time) : 0,
@@ -465,6 +471,14 @@ export function mountGl(o: GlOptions): GlRenderer {
         uBack: (p.m[8] ?? 1) < 0 ? 1 : 0,
       },
     };
+  }
+
+  /**
+   * Whether the card draws flat, as CSS's `data-flat` (main.ts): buried in a closed pile, or in
+   * any pile while one is fanned.
+   */
+  function isPlainCard(c: CardRefs, fr: CardFrame): boolean {
+    return table.isPileQuiet(c.def.id) || (fr.isPile && table.isFanning);
   }
 
   /** Whether the card shows an animation that is running (not buried in a closed pile). */
