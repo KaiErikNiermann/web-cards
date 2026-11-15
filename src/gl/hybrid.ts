@@ -57,7 +57,7 @@ export const HYBRID_KEY = "web-cards:hybrid";
 /**
  * Whether hybrid rendering is wanted: `?hybrid` turns it on and `?hybrid=0` off; otherwise the
  * viewer's stored choice, off by default. Full WebGL held its frame rate better overall on the
- * phone, so the hybrid is opt-in for pages where it helps (see LOG.md).
+ * phone, so the hybrid is opt-in for pages where it helps (docs/face-backends.md).
  */
 export function isHybridWanted(): boolean {
   const param = new URLSearchParams(location.search).get("hybrid");
