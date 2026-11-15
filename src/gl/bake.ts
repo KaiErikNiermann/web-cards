@@ -40,7 +40,8 @@ export function markDomParts(card: HTMLElement): void {
   for (const el of paths) {
     el.dataset.glPath = "";
     for (const child of el.children) {
-      if (child instanceof HTMLElement && !paths.has(child) && !parts.includes(child)) child.dataset.glVeil = "";
+      if (child instanceof HTMLElement && !paths.has(child) && !parts.includes(child))
+        child.dataset.glVeil = "";
     }
   }
 }
@@ -48,9 +49,28 @@ export function markDomParts(card: HTMLElement): void {
 /** Whether `face` has any DOM part. */
 export const hasDomParts = (face: Element): boolean => face.querySelector(DOM_PART) !== null;
 
-/** Hides the DOM parts in a face's snapshot copy, keeping their space and what is behind. */
+/**
+ * Hides the content of the DOM parts in a face's snapshot copy but keeps their boxes
+ * (background, border). WebGL then draws the same box under the live part, so a part a pixel
+ * off while the card settles, or a compositor tile seam where the part is drawn at a
+ * fractional scale, shows its own colour instead of what was behind it: hidden whole, a dark
+ * line crossed the Lab note's textarea in the showcase on the phone (Firefox for Android).
+ */
 export function hideDomParts(clone: HTMLElement): void {
-  for (const el of clone.querySelectorAll<HTMLElement>(DOM_PART)) el.style.setProperty("visibility", "hidden");
+  for (const part of clone.querySelectorAll<HTMLElement>(DOM_PART)) {
+    for (const el of [part, ...part.querySelectorAll<HTMLElement>("*")]) {
+      for (const p of [
+        "color",
+        "-webkit-text-fill-color",
+        "caret-color",
+        "text-decoration-color",
+      ]) {
+        el.style.setProperty(p, "transparent");
+      }
+      el.style.setProperty("text-shadow", "none");
+      if (el.matches("img, svg, canvas, video")) el.style.setProperty("visibility", "hidden");
+    }
+  }
 }
 
 /** Elements the snapshot leaves out because the shader draws them: images and moving layers. */
@@ -69,7 +89,10 @@ export function bakeOf(el: Element): string {
 export function isBuildBaked(root: Element): boolean {
   const isDeviceBaked = (el: Element): boolean =>
     el.closest(DOM_PART) === null && (bakeOf(el) !== "build" || el.matches("[data-live-text]"));
-  return bakeOf(root) === "build" && [...root.querySelectorAll("[data-bake], [data-live-text]")].every((el) => !isDeviceBaked(el));
+  return (
+    bakeOf(root) === "build" &&
+    [...root.querySelectorAll("[data-bake], [data-live-text]")].every((el) => !isDeviceBaked(el))
+  );
 }
 
 /**
@@ -78,7 +101,10 @@ export function isBuildBaked(root: Element): boolean {
  * the artboard size it is laid out at. A face whose markup differs from the
  * one baked at build time gets another key and is rasterized on the device instead.
  */
-export function bakeKey(root: Element, board: { readonly bw: number; readonly bh: number }): string {
+export function bakeKey(
+  root: Element,
+  board: { readonly bw: number; readonly bh: number },
+): string {
   const copy = root.cloneNode(true);
   if (!(copy instanceof Element)) throw new TypeError("gl: bake root is not an element");
   for (const el of [copy, ...copy.querySelectorAll("*")]) {
