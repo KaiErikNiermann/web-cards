@@ -13,7 +13,7 @@ requestAnimationFrame recorded for a few seconds after a 1 s settle; then two to
 (a card dragged along the full-size row, a finger slid along the Stack) are measured while
 they run, and `scroll`: the whole page swiped down and back up with real touch input
 (`adb shell input swipe`, erratic swipes and flings from phone_scroll.py, seeded per round, the
-same for every version). Rounds interleave the versions so heat and drift affect all of them alike. Pin the display's refresh rate first
+same for every version), rated over the frames where the page moved (scroll_trace.py). Rounds interleave the versions so heat and drift affect all of them alike. Pin the display's refresh rate first
 (`adb shell settings put system min_refresh_rate 120.0` and `peak_refresh_rate 120.0`; undo
 with `settings delete system ...`): an adaptive display otherwise drops to 60 Hz on its own.
 Firefox's start-up prompts are answered by android_prompts.auto_answer, and the screen is kept
@@ -34,6 +34,7 @@ from typing import Annotated
 import typer
 from android_prompts import auto_answer
 from phone_scroll import erratic_scroll, screen_size
+from scroll_trace import RECORD, STOP, scrolling_rates
 from selenium import webdriver
 from selenium.webdriver.common.actions import interaction
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
@@ -305,10 +306,11 @@ def main(
                     if not only or "scroll" in only:
                         load()
                         time.sleep(1)
-                        driver.execute_script(START_FRAMES)
+                        # Rates over the frames where the page moved (scroll_trace.py).
+                        driver.execute_script(RECORD)
                         erratic_scroll(driver, serial, 1 + round_no, size, (1, -1))
-                        mean, floor, js = driver.execute_script(STOP_FRAMES)
-                        fps = Rates(float(mean), float(floor), float(js))
+                        mean, floor = scrolling_rates(driver.execute_script(STOP))
+                        fps = Rates(mean, floor)
                         results.setdefault((key, "scroll"), []).append(fps)
                         print(f"{key} scroll: {fps}", flush=True)
         finally:
