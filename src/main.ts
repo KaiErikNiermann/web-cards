@@ -62,7 +62,16 @@ const live: {
   scrub: TouchScrub | undefined;
   /** Whether a pile was fanned in the last rendered frame. */
   fanning: boolean;
-} = { geo: geometryFor(window.innerWidth), raf: 0, laidOut: -1, scrub: undefined, fanning: false };
+  /** Whether the showcase was open in the last rendered frame (hybrid: cards behind hold still). */
+  showOpen: boolean;
+} = {
+  geo: geometryFor(window.innerWidth),
+  raf: 0,
+  laidOut: -1,
+  scrub: undefined,
+  fanning: false,
+  showOpen: false,
+};
 
 /** Offset of `el` from the root's padding box, in layout px (transforms ignored). */
 function layoutPos(el: HTMLElement): Point {
@@ -266,7 +275,14 @@ function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>, isForced:
   c.slot.toggleAttribute("data-lit", isLit);
   // While a pile is fanned every effect animation holds still and its cards draw flat.
   const isQuiet = table.isPileQuiet(c.def.id);
-  c.slot.toggleAttribute("data-still", live.fanning || offscreen.has(c.def.id) || isQuiet);
+  // Hybrid WebGL: the other cards' effects hold still behind an open showcase. Running CSS
+  // animations under the overlay canvas, which redraws every frame, cost the phone's Firefox
+  // the showcase (49 against 104 fps).
+  const isBehindShow = (gl?.isHybrid ?? false) && showcase.isOpen && showcase.id !== c.def.id;
+  c.slot.toggleAttribute(
+    "data-still",
+    live.fanning || offscreen.has(c.def.id) || isQuiet || isBehindShow,
+  );
   // Every card of a fanned pile draws flat, the pointed one too: flipping cards between flat
   // and full as the pointer moves along the fan re-rasterized them (65 against 117 fps).
   c.slot.toggleAttribute("data-flat", isQuiet || (p.pile && live.fanning));
@@ -303,7 +319,10 @@ function kick(): void {
     }
     const isActive = table.tick(now);
     const isShowing = showcase.tick(now);
-    render(hasNewPiles || hasNewFan);
+    // Opening or closing the showcase re-renders the cards at rest (their `data-still`).
+    const hasNewShow = (gl?.isHybrid ?? false) && showcase.isOpen !== live.showOpen;
+    live.showOpen = showcase.isOpen;
+    render(hasNewPiles || hasNewFan || hasNewShow);
     gl?.frame(now);
     const ms = performance.now() - t0;
     hud.record(ms);

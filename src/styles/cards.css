@@ -543,6 +543,19 @@
     --gl-card-shadow: none;
   }
 
+  /* Hybrid WebGL (?gl&hybrid): cards draw in CSS at rest; one that moves is drawn on the
+     overlay canvas meanwhile (data-gl-hy), its DOM layers out of the render tree as under
+     full WebGL. */
+  .page-root[data-gl-hybrid] {
+    --gl-card-content: initial;
+    --gl-card-shadow: initial;
+  }
+
+  .slot[data-gl-hy] {
+    --gl-card-content: none;
+    --gl-card-shadow: none;
+  }
+
   /* A card with controls keeps its face laid out but invisible under WebGL, so presses reach
      the controls (src/gl/live.ts). */
   .slot[data-gl-ghost] {

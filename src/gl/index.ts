@@ -38,6 +38,8 @@ export interface GlOptions {
 export interface GlRenderer {
   /** Resolves once every face is rasterized and the canvases have taken over. */
   readonly ready: Promise<void>;
+  /** Hybrid rendering (`?gl&hybrid` with snapshot faces): CSS at rest, WebGL in motion. */
+  readonly isHybrid: boolean;
   /** Draws the frame at `now` (rAF time); the simulation calls it after each step. */
   frame(now: number): void;
   /** Redraws everything on the next frame (material, geometry or layout changed). */
@@ -72,6 +74,8 @@ const newStats = (): GlStats => ({
 // TEMP: draw-cost experiment switches.
 const EXTRA = ["dup", "fill", "nodraw"].find((k) => location.search.includes(`gl${k}`)) ?? "";
 
+/** Hybrid: how long a card stays on WebGL after it stops moving, so it does not flap. */
+const HYBRID_SETTLE_MS = 250;
 const easeInOut = BezierEasing(0.42, 0, 0.58, 1);
 const sweepEase = BezierEasing(0.5, 0, 0.3, 1);
 
@@ -254,6 +258,14 @@ export function mountGl(o: GlOptions): GlRenderer {
   root.dataset.glFaces = backend;
   const drawable = backend === "drawable" ? drawableFaces(root, onDrawn) : undefined;
   const source: FaceSource = drawable ?? snapshotFaces(root);
+  /**
+   * Hybrid (`?gl&hybrid`, snapshot faces only): cards draw in CSS at rest, where Firefox keeps
+   * static cards cached, and on the overlay canvas only while they move or are showcased.
+   */
+  const isHybrid = !drawable && new URLSearchParams(location.search).has("hybrid");
+  /** Hybrid: cards drawn by WebGL, until the time (ms) they go back to CSS. */
+  const glUntil = new Map<string, number>();
+  if (isHybrid) root.dataset.glHybrid = "";
   let faces: ReadonlyMap<string, FaceImages> = new Map();
   /** Geometry the faces were rasterized at; a change of card size rasterizes them again. */
   let rasterGeo: Geometry | undefined;
@@ -583,8 +595,8 @@ export function mountGl(o: GlOptions): GlRenderer {
     const bySurface = new Map<SectionSurface | undefined, Placed[]>();
     for (const c of cards) {
       const p = place(c, geo, ctx.mat, t);
-      if (!p) continue;
-      const key = surfaceFor(p, origins);
+      if (!p || (isHybrid && !isOnGl(p, now))) continue;
+      const key = isHybrid ? undefined : surfaceFor(p, origins);
       bySurface.set(key, [...(bySurface.get(key) ?? []), p]);
     }
     for (const [s, at] of origins) {
@@ -609,9 +621,26 @@ export function mountGl(o: GlOptions): GlRenderer {
     publish(now, t0);
   }
 
+  /**
+   * Hybrid: whether WebGL draws the card this frame. A moving or showcased card goes on the
+   * overlay canvas, its DOM layers out of the render tree (`data-gl-hy`); it goes back
+   * to CSS once it has been still for `HYBRID_SETTLE_MS`.
+   */
+  function isOnGl(p: Placed, now: number): boolean {
+    const id = p.c.def.id;
+    const isActive = p.fr.isShown || table.ph(id).live;
+    if (isActive) glUntil.set(id, now + HYBRID_SETTLE_MS);
+    const until = glUntil.get(id);
+    const isOn = until !== undefined && now < until;
+    if (!isOn) glUntil.delete(id);
+    p.c.slot.toggleAttribute("data-gl-hy", isOn);
+    return isOn;
+  }
+
   function isFrameNeeded(): boolean {
     return (
       isForced ||
+      glUntil.size > 0 ||
       dirtyCards.size > 0 ||
       (overlay?.drawn.size ?? 0) > 0 ||
       sections.some(
@@ -716,7 +745,8 @@ export function mountGl(o: GlOptions): GlRenderer {
         // Every face is real and drawn by the browser into its canvas: no snapshots to keep
         // fresh, no DOM phase; the invisible face takes input directly.
         for (const c of cards) c.slot.dataset.glGhost = "";
-      } else
+      } else if (!isHybrid)
+        // Hybrid v1 leaves out the DOM phase: a card at rest is the DOM already.
         watchLiveFaces({
           cards,
           isOn: () => root.dataset.gl === "on",
@@ -738,6 +768,7 @@ export function mountGl(o: GlOptions): GlRenderer {
 
   return {
     ready,
+    isHybrid,
     upscale(id: string): void {
       // Up to the showcase's 3x; the face hidden behind WebGL keeps its last art (refresh).
       const c = cards.find((x) => x.def.id === id);
