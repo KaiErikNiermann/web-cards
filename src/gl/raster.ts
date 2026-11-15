@@ -221,6 +221,9 @@ export async function atlas(
             height: rows * ch,
             scale,
             style: { position: "static", transform: "none" },
+            // Off by default: without it a scrolled box (the Lab list) was baked scrolled back
+            // to its start, both ways, although copyScroll had set the clone's offsets.
+            features: { restoreScrollPosition: true },
           });
     const W = cols * cw;
     const H = rows * ch;
