@@ -33,6 +33,7 @@ from typing import Annotated
 
 import typer
 from android_prompts import auto_answer
+from device import uses_webgl
 from phone_scroll import erratic_scroll, screen_size
 from scroll_trace import RECORD, STOP, scrolling_rates
 from selenium import webdriver
@@ -49,7 +50,7 @@ SECTIONS = {
     "animated": "a-orbit",
     "stack": "s-live",
     "cardlets": "m-orbit",
-    # Only with ?lab: a clock face rewritten every second (snapshotted again under ?gl).
+    # Only with ?lab: a clock face rewritten every second.
     "lab": "l-clock",
 }
 # Touch gestures measured while they run: (card to start on, dx, dy) in CSS px, over 1.5 s.
@@ -203,7 +204,8 @@ def main(
         list[str] | None,
         typer.Option(
             help="DIR=QUERY, repeatable: also measure version DIR with ?QUERY (e.g. gl=gl);"
-            " ?gl runs wait for the WebGL renderer to take over"
+            " runs wait for the WebGL renderer to take over unless the query has nogl (the DOM"
+            " fallback, the cards drawn by CSS)"
         ),
     ] = None,
 ) -> None:
@@ -273,7 +275,7 @@ def main(
                         driver.execute_script(RATES)
                         if extra:
                             driver.execute_script(INJECT, extra)
-                        if "gl" in q.split("&"):
+                        if uses_webgl(q):
                             WebDriverWait(driver, 30).until(
                                 lambda d: d.execute_script(
                                     "return document.querySelector('[data-root]')"

@@ -17,11 +17,11 @@ dev *flags:
     pnpm dev {{ flags }}
 
 # Serve the page to the USB phone and open it in Firefox; Ctrl+C cleans up
-phone query="?gl&lab&hud":
+phone query="?lab&hud":
     scripts/phone.sh "{{ query }}"
 
 # Build, then serve the built copy to the USB phone
-phone-build query="?gl&lab&hud": build
+phone-build query="?lab&hud": build
     scripts/phone.sh "{{ query }}" dist
 
 # --- Library ---

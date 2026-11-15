@@ -12,8 +12,8 @@ version (and query variant) a fresh tab loads the page; after it settles, Androi
 page), the GPU process's "GL mtrack" (textures, canvas and render-target memory the driver
 reports) and the PSS of all Firefox processes together. It is read once idle at the top of
 the page, and once more after scrolling over the whole page and opening the showcase (a tap
-on the first full-size card), so lazily created resources are counted. `?gl` variants wait
-for the WebGL renderer to take over before measuring.
+on the first full-size card), so lazily created resources are counted. Pages wait for the
+WebGL renderer to take over before measuring, unless the query has `nogl` (the DOM fallback).
 """
 
 import functools
@@ -29,6 +29,7 @@ from typing import Annotated
 
 import typer
 from android_prompts import auto_answer
+from device import uses_webgl
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.service import Service
@@ -124,7 +125,7 @@ def main(
                         f"http://127.0.0.1:{PORT}/{v}/index.html"
                         + (f"?{q}" if q else "")
                     )
-                    if "gl" in q.split("&"):
+                    if uses_webgl(q):
                         WebDriverWait(driver, 30).until(
                             lambda d: d.execute_script(
                                 "return document.querySelector('[data-root]')"

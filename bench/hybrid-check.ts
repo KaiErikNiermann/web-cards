@@ -1,4 +1,4 @@
-// Hybrid rendering (?gl&hybrid&lab, src/gl/hybrid.ts) in desktop Firefox at phone size: that
+// Hybrid rendering (?hybrid&lab, src/gl/hybrid.ts) in desktop Firefox at phone size: that
 // effects, Lab input and scrolling stay whole across the handovers between CSS and WebGL.
 //
 //   node bench/hybrid-check.ts        (just hybrid-check; serves the built dist/)
@@ -270,7 +270,7 @@ try {
   page.on("pageerror", (e) => {
     errors.push(String(e));
   });
-  await page.goto(`http://localhost:${String(PORT)}/index.html?gl&hybrid&lab`);
+  await page.goto(`http://localhost:${String(PORT)}/index.html?hybrid&lab`);
   await page.waitForFunction(
     () => document.querySelector<HTMLElement>("[data-root]")?.dataset.gl === "on",
     undefined,

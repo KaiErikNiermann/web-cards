@@ -2,7 +2,7 @@
 # Serve the page to an Android phone over USB and open it in Firefox there.
 #
 # Usage: scripts/phone.sh [QUERY] [DIR]
-#   QUERY  page query string, default "?gl&lab&hud"
+#   QUERY  page query string, default "?lab&hud" (add hybrid for hybrid rendering)
 #   DIR    a built copy to serve statically (e.g. dist); default is the Vite dev server
 #
 # The phone reaches the server as localhost through `adb reverse`, so it works without
@@ -13,7 +13,7 @@
 # BROWSER_PKG (default org.mozilla.firefox).
 set -euo pipefail
 
-query=${1:-"?gl&lab&hud"}
+query=${1:-"?lab&hud"}
 dir=${2:-}
 port=${PORT:-5174}
 pkg=${BROWSER_PKG:-org.mozilla.firefox}

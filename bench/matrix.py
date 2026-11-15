@@ -16,7 +16,7 @@ DIR is a built site (`vite build`, with the bake). Three parts, written to one r
 2. Consistency: the two browsers' own renderings of each fixture against each other, and what
    a user of each sees through WebGL (Firefox snapshot against Chrome drawable), with the
    parity metric (wrong pixels with a 1 px tolerance, mean difference).
-3. Speed and memory, in the app (?gl&lab) for Firefox snapshot, Chrome drawable and Chrome
+3. Speed and memory, in the app (?lab) for Firefox snapshot, Chrome drawable and Chrome
    snapshot, in interleaved rounds with the display pinned to 120 Hz: time until WebGL draws,
    frame rate with the Lab in view at rest and while a card opens in the showcase (median and
    5th percentile rates from the frame gaps, and frames over 25 ms), and the browser's total PSS (all its processes,
@@ -63,9 +63,9 @@ class AppConfig:
 
 
 APPS = (
-    AppConfig("Firefox, snapshot", Target.PHONE, FIREFOX, "?gl&lab"),
-    AppConfig("Chrome, drawable", Target.PHONE_CHROME, CHROME, "?gl&lab"),
-    AppConfig("Chrome, snapshot", Target.PHONE_CHROME, CHROME, "?gl&lab&glsrc=snapshot"),
+    AppConfig("Firefox, snapshot", Target.PHONE, FIREFOX, "?lab&hybrid=0"),
+    AppConfig("Chrome, drawable", Target.PHONE_CHROME, CHROME, "?lab"),
+    AppConfig("Chrome, snapshot", Target.PHONE_CHROME, CHROME, "?lab&glsrc=snapshot"),
 )
 
 
@@ -259,7 +259,7 @@ def write_report(
             table(fid_rows, ["fixture", *fidelity.keys()]),
             "## Consistency between the browsers",
             table(con_rows, ["fixture", *consistency.keys()]),
-            f"## Speed and memory in the app (?gl&lab), medians of {len(app) // max(1, len(by_cfg))} rounds",
+            f"## Speed and memory in the app (?lab), medians of {len(app) // max(1, len(by_cfg))} rounds",
             table(app_rows, ["config", "faces", "ready ms", "raster ms", "Lab at rest fps (median / p5 / frames >25 ms in 3 s)", "showcase fps (median / p5 / frames >25 ms in 1.5 s)", "PSS at rest MB", "PSS after showcase MB"]),
         ]
     )

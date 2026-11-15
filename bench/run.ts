@@ -1,4 +1,6 @@
-// Timing and memory benchmark of the production build in headless Chromium.
+// Timing and memory benchmark of the production build in headless Chromium, with the cards
+// drawn by the DOM (`?nogl`, the fallback where WebGL cannot start): its style, paint and layer
+// numbers are the DOM renderer's, as in every result file here.
 //
 //   node bench/run.ts [--label NAME] [--runs N] [--profile desktop|phone] [--compare FILE]
 //                     [--scenario ID ...]
@@ -83,7 +85,7 @@ async function runOnce(browser: Browser, profile: Profile, sc: Scenario): Promis
   });
   try {
     const page = await context.newPage();
-    await page.goto(`http://localhost:${String(PORT)}/`, { waitUntil: "load" });
+    await page.goto(`http://localhost:${String(PORT)}/?nogl`, { waitUntil: "load" });
     // The page re-lays out once fonts and images settle (setTimeout 300 in main.ts).
     await page.waitForTimeout(600);
     const probe = await Probe.attach(browser, page);

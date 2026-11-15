@@ -36,6 +36,7 @@ from typing import Annotated, Literal
 
 import typer
 from android_prompts import auto_answer
+from device import uses_webgl
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.support.wait import WebDriverWait
@@ -282,7 +283,7 @@ def main(
                     )
                     if extra:
                         driver.execute_script(INJECT, extra)
-                    if "gl" in q.split("&"):
+                    if uses_webgl(q):
                         WebDriverWait(driver, 30).until(
                             lambda d: d.execute_script(
                                 "return document.querySelector('[data-root]')?.dataset.gl === 'on'"

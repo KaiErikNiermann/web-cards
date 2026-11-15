@@ -4,6 +4,7 @@
 `reverse` makes a host port reachable on the device as localhost, `forward` the other way
 round (Chrome's DevTools socket); `android_firefox` starts a WebDriver session in Firefox for
 Android, answering its start-up prompts, and keeps the screen on while it runs.
+`uses_webgl` says whether a page query runs the WebGL renderer, so a script waits for it.
 """
 
 import functools
@@ -18,6 +19,12 @@ from pathlib import Path
 from android_prompts import FIREFOX, auto_answer
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
+
+
+def uses_webgl(query: str) -> bool:
+    """Whether the page runs the WebGL renderer: the default, unless `?nogl` asks for the
+    DOM fallback (the cards drawing themselves, as where WebGL cannot start)."""
+    return "nogl" not in query.lstrip("?").split("&")
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):

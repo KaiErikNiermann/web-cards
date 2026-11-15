@@ -6,7 +6,8 @@
 
   uv run bench/scroll_trace.py SERIAL DIR [--query QUERY ...] [--seed 1] [--wait 2]
 
-DIR is a built site. For every query (default: CSS, ?gl and ?gl&hybrid) the page is loaded in
+DIR is a built site. For every query (default: ?nogl, the DOM drawing the cards; the default
+WebGL page; ?hybrid) the page is loaded in
 a fresh Firefox session, given --wait seconds after the WebGL renderer takes over, and swiped
 down to the bottom and back up with the core bench's erratic swipes (phone_scroll.py, the same
 seed for every query). Every animation frame records its time, the scroll offset and how many
@@ -30,7 +31,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from device import android_firefox, reverse, serve
+from device import android_firefox, reverse, serve, uses_webgl
 from phone_scroll import erratic_scroll, screen_size
 from selenium import webdriver
 
@@ -112,7 +113,7 @@ def summarize(trace: list[list[float]]) -> Summary:
 def trace_in(d: webdriver.Firefox, serial: str, base: str, query: str, seed: int, wait: float) -> list[list[float]]:
     """Loads the page in session `d`, waits for start-up, and traces one scroll."""
     d.get(f"{base}/index.html{query}")
-    if "gl" in query.lstrip("?").split("&"):
+    if uses_webgl(query):
         for _ in range(300):
             if d.execute_script("return document.querySelector('[data-root]')?.dataset.gl") == "on":
                 break
@@ -138,7 +139,7 @@ def main(
     out: Annotated[Path, typer.Option()] = Path(".scratch/scroll-trace"),
 ) -> None:
     """Trace erratic scrolling frame by frame on the phone, per query."""
-    queries = query or ["", "?gl", "?gl&hybrid"]
+    queries = query or ["?nogl", "", "?hybrid"]
     out.mkdir(parents=True, exist_ok=True)
     results: dict[str, list[Summary]] = {}
     with serve(dist, PORT) as base, reverse(serial, PORT), ExitStack() as stack:
@@ -150,7 +151,7 @@ def main(
                 else:
                     with android_firefox(serial) as d:
                         trace = trace_in(d, serial, base, q, seed + r, wait)
-                name = q.lstrip("?") or "css"
+                name = q.lstrip("?") or "webgl"
                 (out / f"{name.replace('&', '+')}-{r}.json").write_text(json.dumps(trace), encoding="utf-8")
                 s = summarize(trace)
                 results.setdefault(name, []).append(s)

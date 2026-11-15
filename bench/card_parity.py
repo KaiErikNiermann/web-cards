@@ -9,9 +9,9 @@
 DIR is a built site. Every card of the page (the Lab included) is screenshotted, its slot box
 on the page, by three renderers:
 
-- css: Firefox, `?gl&hybrid`, where every card at rest draws in CSS;
-- gl-ff: Firefox, `?gl`, snapshot faces drawn by the WebGL shader;
-- gl-chrome: Chrome, `?gl`, HTML-in-Canvas faces drawn by the same shader.
+- css: Firefox, `?hybrid`, where every card at rest draws in CSS;
+- gl-ff: Firefox, WebGL (the default), snapshot faces drawn by the shader;
+- gl-chrome: Chrome, WebGL, HTML-in-Canvas faces drawn by the same shader.
 
 Effects are held at one time: `?glfreeze` fixes the WebGL clock, and every CSS animation is
 paused at the same time before each screenshot. Each pair is scored with parity.py's metric
@@ -38,9 +38,9 @@ from PIL import Image
 
 Renderer = Literal["css", "gl-ff", "gl-chrome"]
 RENDERERS: dict[Renderer, tuple[Target, str]] = {
-    "css": (Target.PHONE, "?gl&hybrid&lab"),
-    "gl-ff": (Target.PHONE, "?gl&lab&glsrc=snapshot&glfreeze={t}"),
-    "gl-chrome": (Target.PHONE_CHROME, "?gl&lab&glfreeze={t}"),
+    "css": (Target.PHONE, "?hybrid&lab"),
+    "gl-ff": (Target.PHONE, "?hybrid=0&lab&glsrc=snapshot&glfreeze={t}"),
+    "gl-chrome": (Target.PHONE_CHROME, "?lab&glfreeze={t}"),
 }
 PAIRS: tuple[tuple[Renderer, Renderer], ...] = (("css", "gl-ff"), ("gl-ff", "gl-chrome"), ("css", "gl-chrome"))
 FREEZE_JS = "(() => {{ for (const a of document.getAnimations()) {{ a.pause(); a.currentTime = {ms}; }} return 0; }})()"
@@ -56,7 +56,7 @@ class PairScore:
 
 
 def wait_ready(b: Browser, query: str) -> None:
-    """Waits until the WebGL renderer has taken over (every renderer here runs under `?gl`)."""
+    """Waits until the WebGL renderer has taken over (every renderer here runs it)."""
     for _ in range(300):
         match b.js("document.querySelector('[data-root]')?.dataset.gl ?? ''"):
             case "on":
