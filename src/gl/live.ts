@@ -35,14 +35,14 @@ const QUIET_MS = 5000;
 const isInDom = (c: CardRefs): boolean => c.slot.dataset.glDom !== undefined;
 
 /** The element a mutation happened in. */
-const elementOf = (r: MutationRecord): Element | null =>
+export const elementOf = (r: MutationRecord): Element | null =>
   r.target instanceof Element ? r.target : r.target.parentElement;
 
 /** Whether an event or mutation happened inside a DOM part, which the snapshot leaves out. */
-const isInPart = (el: EventTarget | Element | null): boolean => el instanceof Element && isInDomPart(el);
+export const isInPart = (el: EventTarget | Element | null): boolean => el instanceof Element && isInDomPart(el);
 
 /** Whether these mutations touched only live-text elements. */
-const isLiveTextOnly = (records: readonly MutationRecord[]): boolean =>
+export const isLiveTextOnly = (records: readonly MutationRecord[]): boolean =>
   records.every((r) => Boolean(elementOf(r)?.closest(LIVE_TEXT)));
 
 export function watchLiveFaces(o: LiveOptions): void {

@@ -16,6 +16,7 @@ import { hasDomParts } from "./bake";
 import { drawableFaces, hasDrawableCanvas } from "./drawable";
 import { isOverlayOnly, raisedAboveOverlay } from "./layering";
 import type { FaceImages, FaceSource } from "./faces";
+import { mountHybrid, type Hybrid, type Motion } from "./hybrid";
 import { watchLiveFaces } from "./live";
 import { paint as paintText } from "./livetext";
 import { snapshotFaces } from "./raster";
@@ -74,8 +75,6 @@ const newStats = (): GlStats => ({
 // TEMP: draw-cost experiment switches.
 const EXTRA = ["dup", "fill", "nodraw"].find((k) => location.search.includes(`gl${k}`)) ?? "";
 
-/** Hybrid: how long a card stays on WebGL after it stops moving, so it does not flap. */
-const HYBRID_SETTLE_MS = 250;
 const easeInOut = BezierEasing(0.42, 0, 0.58, 1);
 const sweepEase = BezierEasing(0.5, 0, 0.3, 1);
 
@@ -265,8 +264,8 @@ export function mountGl(o: GlOptions): GlRenderer {
    * static cards cached, and on the overlay canvas only while they move or are showcased.
    */
   const isHybrid = !drawable && new URLSearchParams(location.search).has("hybrid");
-  /** Hybrid: cards drawn by WebGL, until the time (ms) they go back to CSS. */
-  const glUntil = new Map<string, number>();
+  /** Hybrid: which cards WebGL draws (hybrid.ts); set once the renderer is on. */
+  let hybrid: Hybrid | undefined;
   if (isHybrid) root.dataset.glHybrid = "";
   let faces: ReadonlyMap<string, FaceImages> = new Map();
   /** Geometry the faces were rasterized at; a change of card size rasterizes them again. */
@@ -555,12 +554,14 @@ export function mountGl(o: GlOptions): GlRenderer {
   ): void {
     if (!surface.begin()) return;
     for (const p of list) {
-      const d = drawOf(p, at.x, at.y, ctx);
-      if (EXTRA !== "nodraw") surface.draw(d, view, ctx.time);
+      // Hybrid: a card's effects continue its CSS animations (hybrid.ts).
+      const time = ctx.time + (hybrid?.phase(p.c.def.id) ?? 0);
+      const d = drawOf(p, at.x, at.y, { ...ctx, time });
+      if (EXTRA !== "nodraw") surface.draw(d, view, time);
       // TEMP: ?gldup adds a zero-area draw per card (draw-call cost alone); ?glfill draws every
       // card twice (pixel cost).
-      if (EXTRA === "dup") surface.draw({ ...d, halfW: 0, halfH: 0, margin: 0 }, view, ctx.time);
-      else if (EXTRA === "fill") surface.draw(d, view, ctx.time);
+      if (EXTRA === "dup") surface.draw({ ...d, halfW: 0, halfH: 0, margin: 0 }, view, time);
+      else if (EXTRA === "fill") surface.draw(d, view, time);
     }
     stats.cards += list.length;
   }
@@ -609,7 +610,9 @@ export function mountGl(o: GlOptions): GlRenderer {
     const bySurface = new Map<SectionSurface | undefined, Placed[]>();
     for (const c of cards) {
       const p = place(c, geo, ctx.mat, t);
-      if (!p || (isHybrid && !isOnGl(p, now))) continue;
+      if (!p) continue;
+      // Hybrid: only cards in motion or in the showcase are WebGL's, all on the overlay.
+      if (hybrid && !hybrid.isOnGl(c, motionOf(p), now)) continue;
       const key = isHybrid ? undefined : surfaceFor(p, origins);
       bySurface.set(key, [...(bySurface.get(key) ?? []), p]);
     }
@@ -635,26 +638,16 @@ export function mountGl(o: GlOptions): GlRenderer {
     publish(now, t0);
   }
 
-  /**
-   * Hybrid: whether WebGL draws the card this frame. A moving or showcased card goes on the
-   * overlay canvas, its DOM layers out of the render tree (`data-gl-hy`); it goes back
-   * to CSS once it has been still for `HYBRID_SETTLE_MS`.
-   */
-  function isOnGl(p: Placed, now: number): boolean {
-    const id = p.c.def.id;
-    const isActive = p.fr.isShown || table.ph(id).live;
-    if (isActive) glUntil.set(id, now + HYBRID_SETTLE_MS);
-    const until = glUntil.get(id);
-    const isOn = until !== undefined && now < until;
-    if (!isOn) glUntil.delete(id);
-    p.c.slot.toggleAttribute("data-gl-hy", isOn);
-    return isOn;
+  function motionOf(p: Placed): Motion {
+    const ph = table.ph(p.c.def.id);
+    if (p.fr.isShown || ph.drag) return "held";
+    return ph.live ? "moving" : "rest";
   }
 
   function isFrameNeeded(): boolean {
     return (
       isForced ||
-      glUntil.size > 0 ||
+      (hybrid?.isBusy() ?? false) ||
       dirtyCards.size > 0 ||
       (overlay?.drawn.size ?? 0) > 0 ||
       sections.some(
@@ -759,8 +752,10 @@ export function mountGl(o: GlOptions): GlRenderer {
         // Every face is real and drawn by the browser into its canvas: no snapshots to keep
         // fresh, no DOM phase; the invisible face takes input directly.
         for (const c of cards) c.slot.dataset.glGhost = "";
-      } else if (!isHybrid)
-        // Hybrid v1 leaves out the DOM phase: a card at rest is the DOM already.
+      } else if (isHybrid) {
+        // A card at rest is the DOM already: no DOM phase, only fresh snapshots for its moves.
+        hybrid = mountHybrid({ cards, isOn: () => root.dataset.gl === "on", refresh, hasPatchedText });
+      } else
         watchLiveFaces({
           cards,
           isOn: () => root.dataset.gl === "on",
