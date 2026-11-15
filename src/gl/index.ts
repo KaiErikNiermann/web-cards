@@ -34,6 +34,8 @@ export interface GlOptions {
   readonly show: (c: CardRefs) => ShowFrame | undefined;
   /** Whether the simulation's own frame is pending; it then calls `frame` itself. */
   readonly isSimPending: () => boolean;
+  /** Hybrid: the card being edited changed (`GlRenderer.editing`). */
+  readonly editingChanged: () => void;
 }
 
 export interface GlRenderer {
@@ -41,6 +43,8 @@ export interface GlRenderer {
   readonly ready: Promise<void>;
   /** Hybrid rendering (`?gl&hybrid` with snapshot faces): CSS at rest, WebGL in motion. */
   readonly isHybrid: boolean;
+  /** Hybrid: the card being edited (a pointer on a control, focus in a field), if any. */
+  editing(): string | undefined;
   /** Draws the frame at `now` (rAF time); the simulation calls it after each step. */
   frame(now: number): void;
   /** Redraws everything on the next frame (material, geometry or layout changed). */
@@ -762,7 +766,13 @@ export function mountGl(o: GlOptions): GlRenderer {
         for (const c of cards) c.slot.dataset.glGhost = "";
       } else if (isHybrid) {
         // A card at rest is the DOM already: no DOM phase, only fresh snapshots for its moves.
-        hybrid = mountHybrid({ cards, isOn: () => root.dataset.gl === "on", refresh, hasPatchedText });
+        hybrid = mountHybrid({
+          cards,
+          isOn: () => root.dataset.gl === "on",
+          refresh,
+          hasPatchedText,
+          editingChanged: o.editingChanged,
+        });
       } else
         watchLiveFaces({
           cards,
@@ -786,6 +796,7 @@ export function mountGl(o: GlOptions): GlRenderer {
   return {
     ready,
     isHybrid,
+    editing: () => hybrid?.editing(),
     upscale(id: string): void {
       // Up to the showcase's 3x; the face hidden behind WebGL keeps its last art (refresh).
       const c = cards.find((x) => x.def.id === id);

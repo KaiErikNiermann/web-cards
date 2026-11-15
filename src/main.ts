@@ -62,15 +62,15 @@ const live: {
   scrub: TouchScrub | undefined;
   /** Whether a pile was fanned in the last rendered frame. */
   fanning: boolean;
-  /** Whether the showcase was open in the last rendered frame (hybrid: cards behind hold still). */
-  showOpen: boolean;
+  /** Hybrid: the card the others held still behind in the last rendered frame (`focusOf`). */
+  focus: string | undefined;
 } = {
   geo: geometryFor(window.innerWidth),
   raf: 0,
   laidOut: -1,
   scrub: undefined,
   fanning: false,
-  showOpen: false,
+  focus: undefined,
 };
 
 /** Offset of `el` from the root's padding box, in layout px (transforms ignored). */
@@ -143,6 +143,9 @@ const gl = new URLSearchParams(location.search).has("gl")
       layoutPos,
       show: showOf,
       isSimPending: () => live.raf !== 0,
+      editingChanged: () => {
+        kick();
+      },
     })
   : undefined;
 
@@ -249,6 +252,17 @@ function renderControls(): void {
 /** Cards that were live in the last rendered frame; a card at rest two frames running is skipped. */
 const liveLastFrame = new Set<string>();
 
+/**
+ * Hybrid WebGL: the card every other card's effects hold still behind, the showcased one or
+ * the one being edited. Running CSS animations around it cost the phone's Firefox: under the
+ * overlay canvas redrawn every frame, the showcase (49 against 104 fps); around a slider being
+ * dragged, every step (104/60 against 118/119).
+ */
+function focusOf(): string | undefined {
+  if (!(gl?.isHybrid ?? false)) return undefined;
+  return showcase.isOpen ? showcase.id : gl?.editing();
+}
+
 /** Writes one card's state to the DOM; unless `isForced`, only while it moves or just stopped. */
 function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>, isForced: boolean): void {
   const p = table.view(c.def.id);
@@ -275,13 +289,11 @@ function renderCard(c: CardRefs, mat: ReturnType<typeof materialView>, isForced:
   c.slot.toggleAttribute("data-lit", isLit);
   // While a pile is fanned every effect animation holds still and its cards draw flat.
   const isQuiet = table.isPileQuiet(c.def.id);
-  // Hybrid WebGL: the other cards' effects hold still behind an open showcase. Running CSS
-  // animations under the overlay canvas, which redraws every frame, cost the phone's Firefox
-  // the showcase (49 against 104 fps).
-  const isBehindShow = (gl?.isHybrid ?? false) && showcase.isOpen && showcase.id !== c.def.id;
+  const focus = focusOf();
+  const isBehindFocus = focus !== undefined && focus !== c.def.id;
   c.slot.toggleAttribute(
     "data-still",
-    live.fanning || offscreen.has(c.def.id) || isQuiet || isBehindShow,
+    live.fanning || offscreen.has(c.def.id) || isQuiet || isBehindFocus,
   );
   // Every card of a fanned pile draws flat, the pointed one too: flipping cards between flat
   // and full as the pointer moves along the fan re-rasterized them (65 against 117 fps).
@@ -319,10 +331,11 @@ function kick(): void {
     }
     const isActive = table.tick(now);
     const isShowing = showcase.tick(now);
-    // Opening or closing the showcase re-renders the cards at rest (their `data-still`).
-    const hasNewShow = (gl?.isHybrid ?? false) && showcase.isOpen !== live.showOpen;
-    live.showOpen = showcase.isOpen;
-    render(hasNewPiles || hasNewFan || hasNewShow);
+    // A new focus card re-renders the cards at rest (their `data-still`).
+    const focus = focusOf();
+    const hasNewFocus = focus !== live.focus;
+    live.focus = focus;
+    render(hasNewPiles || hasNewFan || hasNewFocus);
     gl?.frame(now);
     const ms = performance.now() - t0;
     hud.record(ms);

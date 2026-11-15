@@ -25,6 +25,8 @@ export interface HybridOptions {
   readonly refresh: (ids: readonly string[]) => Promise<void>;
   /** Redraws a card's live text in place; false when it has none. */
   readonly hasPatchedText: (id: string) => boolean;
+  /** The card being edited changed (`editing`). */
+  readonly editingChanged: () => void;
 }
 
 /** A card's motion this frame: dragged or showcased (`held`), moving in the physics, at rest. */
@@ -37,6 +39,8 @@ export interface Hybrid {
   phase(id: string): number;
   /** Whether a card is on WebGL or waiting to go back, so frames must keep coming. */
   readonly isBusy: () => boolean;
+  /** The card being edited (a pointer on a control, focus in a field), if any. */
+  readonly editing: () => string | undefined;
 }
 
 /** How long a card stays on WebGL after it stops moving, so it does not flap. */
@@ -81,6 +85,7 @@ export function mountHybrid(o: HybridOptions): Hybrid {
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   /** Bumped by each change, so a snapshot taken across a change does not count as fresh. */
   const versions = new Map<string, number>();
+  let editingId: string | undefined;
 
   const isCssOnly = (c: CardRefs): boolean =>
     stale.has(c.def.id) || pressed.has(c.def.id) || hasFocus(c);
@@ -144,17 +149,50 @@ export function mountHybrid(o: HybridOptions): Hybrid {
     c.card.addEventListener(
       "pointerdown",
       (e) => {
-        if (e.target instanceof Element && e.target.closest(INTERACTIVE) && !isInPart(e.target)) {
-          pressed.add(c.def.id);
+        if (!(e.target instanceof Element && e.target.closest(INTERACTIVE)) || isInPart(e.target)) {
+          return;
         }
+
+        pressed.add(c.def.id);
+        syncEditing(c);
       },
       { capture: true },
     );
+    c.card.addEventListener("focusin", () => {
+      syncEditing(c);
+    });
+    c.card.addEventListener("focusout", () => {
+      // Focus has not moved on yet during focusout.
+      queueMicrotask(() => {
+        syncEditing(c);
+      });
+    });
   }
   for (const type of ["pointerup", "pointercancel"]) {
     addEventListener(type, () => {
+      const ids = new Set(pressed);
       pressed.clear();
+      for (const c of o.cards) if (ids.has(c.def.id)) syncEditing(c);
     });
+  }
+
+  /**
+   * A card being edited (a pointer on a control, focus in a field) draws flat, as in the
+   * full-WebGL DOM phase (`data-gl-dom`): no material layers or face filter. With them, every
+   * slider step repainted the face under its filter and blend layers (phone slider: 99/30
+   * -> 102/40 fps). The other cards hold still meanwhile (main.ts).
+   */
+  function syncEditing(c: CardRefs): void {
+    const isEditing = pressed.has(c.def.id) || hasFocus(c);
+    // The renderer skips cards in the DOM phase, so one on WebGL (lifted by a hover) comes
+    // back here, not in a frame.
+    if (isEditing && until.delete(c.def.id)) toCss(c, performance.now());
+    c.slot.toggleAttribute("data-gl-dom", isEditing);
+    // This card becomes the one edited, or stops being it; another card's editing stays.
+    const wasEditing = editingId === c.def.id;
+    if (isEditing === wasEditing) return;
+    editingId = isEditing ? c.def.id : undefined;
+    o.editingChanged();
   }
 
   function toGl(c: CardRefs, now: number): void {
@@ -191,5 +229,6 @@ export function mountHybrid(o: HybridOptions): Hybrid {
     },
     phase: (id) => phases.get(id) ?? 0,
     isBusy: () => until.size > 0,
+    editing: () => editingId,
   };
 }
