@@ -56,6 +56,14 @@ matrix *flags: build
 parity target="phone" *flags: build
     uv run bench/parity.py dist --target {{ target }} {{ flags }}
 
+# Hybrid rendering in desktop Firefox: effects, Lab input and scrolling across handovers
+hybrid-check: build
+    node bench/hybrid-check.ts
+
+# Erratic scrolling on a phone, frame by frame, a fresh Firefox session per query
+scroll-trace serial *flags: build
+    uv run bench/scroll_trace.py {{ serial }} dist {{ flags }}
+
 # Whole cards on a phone: CSS, Firefox WebGL and Chrome WebGL, compared pairwise
 card-parity serial *flags: build
     uv run bench/card_parity.py dist --serial {{ serial }} {{ flags }}
