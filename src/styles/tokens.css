@@ -214,6 +214,9 @@
     --gl-margin-block: 96px;
     --gl-margin-inline: 48px;
 
+    /* WebGL rendering: crossfade between a card's DOM copy and its WebGL drawing (fade.ts). */
+    --gl-fade: 180ms;
+
     /* WebGL rendering: stand-ins for form controls in face snapshots (gl-controls.css), drawn
        like Firefox for Android's own controls. accent-color overrides --ctl-accent. */
     --ctl-accent: #4f5b7c;

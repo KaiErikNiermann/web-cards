@@ -6,6 +6,7 @@
 
 import { INTERACTIVE, type CardRefs } from "../dom";
 import { hasDomParts, isInDomPart, markDomParts } from "./bake";
+import type { Handover } from "./fade";
 import { LIVE_TEXT } from "./livetext";
 
 export interface LiveOptions {
@@ -16,8 +17,11 @@ export interface LiveOptions {
   readonly refresh: (ids: readonly string[]) => Promise<void>;
   /** Redraws a card's live text in place; false when it has none. */
   readonly hasPatchedText: (id: string) => boolean;
-  /** A card switched between the DOM and WebGL. */
-  readonly changed: () => void;
+  /**
+   * Hands a card between the DOM and WebGL: `apply` marks it (fade.ts runs it at once for the
+   * DOM, after the crossfade for WebGL).
+   */
+  readonly handover: (c: CardRefs, to: Handover, apply?: () => void) => void;
 }
 
 /** How long a card stays in the DOM after the last input on it, unless it holds focus. */
@@ -39,7 +43,8 @@ export const elementOf = (r: MutationRecord): Element | null =>
   r.target instanceof Element ? r.target : r.target.parentElement;
 
 /** Whether an event or mutation happened inside a DOM part, which the snapshot leaves out. */
-export const isInPart = (el: EventTarget | Element | null): boolean => el instanceof Element && isInDomPart(el);
+export const isInPart = (el: EventTarget | Element | null): boolean =>
+  el instanceof Element && isInDomPart(el);
 
 /** Whether these mutations touched only live-text elements. */
 export const isLiveTextOnly = (records: readonly MutationRecord[]): boolean =>
@@ -60,16 +65,24 @@ export function watchLiveFaces(o: LiveOptions): void {
     );
   }
 
+  /** Cards fading back to WebGL; input on one turns it back to the DOM. */
+  const leaving = new Set<string>();
+
   async function leave(c: CardRefs): Promise<void> {
     if (!isInDom(c) || c.card.contains(document.activeElement)) return;
     // Snapshot while the face is still laid out, so scroll offsets carry over; then hand over.
     await o.refresh([c.def.id]);
     if (c.card.contains(document.activeElement)) return;
-    delete c.slot.dataset.glDom;
-    o.changed();
+    leaving.add(c.def.id);
+    o.handover(c, "gl", () => {
+      if (!leaving.delete(c.def.id)) return;
+      delete c.slot.dataset.glDom;
+    });
   }
 
   function touch(c: CardRefs): void {
+    // Input during the fade back to WebGL: fade back to the DOM instead.
+    if (leaving.delete(c.def.id)) o.handover(c, "dom");
     clearTimeout(idle.get(c.def.id));
     idle.set(
       c.def.id,
@@ -80,11 +93,11 @@ export function watchLiveFaces(o: LiveOptions): void {
   }
 
   function enter(c: CardRefs): void {
-    c.slot.dataset.glDom = "";
-    o.changed();
+    o.handover(c, "dom", () => {
+      c.slot.dataset.glDom = "";
+    });
     touch(c);
   }
-
 
   for (const c of o.cards) {
     const face = c.card.querySelector<HTMLElement>("[data-face]");
@@ -103,7 +116,8 @@ export function watchLiveFaces(o: LiveOptions): void {
         (e) => {
           if (!o.isOn() || isInDom(c)) return;
           // A DOM part is already live; only the snapshotted controls need the DOM.
-          if (e.target instanceof Element && e.target.closest(INTERACTIVE) && !isInPart(e.target)) enter(c);
+          if (e.target instanceof Element && e.target.closest(INTERACTIVE) && !isInPart(e.target))
+            enter(c);
         },
         { capture: true },
       );
@@ -132,8 +146,13 @@ export function watchLiveFaces(o: LiveOptions): void {
         clearTimeout(pending.get(c.def.id));
         if (c.slot.dataset.glVolatile === undefined) {
           c.slot.dataset.glVolatile = "";
-          c.slot.dataset.glDom = "";
-          o.changed();
+          // Mid-fade back to WebGL it turns around; drawn by WebGL, it fades into the DOM.
+          if (leaving.delete(c.def.id)) o.handover(c, "dom");
+          else if (!isInDom(c)) {
+            o.handover(c, "dom", () => {
+              c.slot.dataset.glDom = "";
+            });
+          }
         }
         clearTimeout(quiet);
         quiet = setTimeout(() => {

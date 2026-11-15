@@ -16,6 +16,7 @@ Choosing:
 - `?glsrc=snapshot` uses Snapshot in any browser, Chromium included.
 - `?glsrc=drawable` insists on Drawable and fails where it is missing.
 - With Snapshot faces, hybrid rendering is opt-in (`?hybrid`, or the panel's "Hybrid rendering" toggle, remembered per browser; `?hybrid=0` forces it off): cards at rest draw in CSS and only cards that move, are showcased or scroll draw in WebGL. On the phone it matched CSS at rest and WebGL while moving, but full WebGL held up better overall, so it is off by default.
+- Where a card hands over between its live markup and its WebGL drawing (start-up, and entering or leaving the DOM phase while it is edited), the two crossfade over `--gl-fade` (180 ms), with WebGL drawing the card under its DOM copy meanwhile; a switch in one frame showed as a jump, since a snapshot never matches the page exactly. On by default; `?glfade=0` or the panel's "Fade between live and baked cards" toggle (remembered per browser) switches it off.
 - `data-bake="build"` on a face or back uses its baked image with either backend; on the dev server, which has no bake, it falls back to the backend.
 
 The HUD (`?hud`) shows the backend in use next to "webgl".

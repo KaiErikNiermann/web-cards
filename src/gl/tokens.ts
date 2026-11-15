@@ -25,6 +25,8 @@ export interface GlTokens {
   /** How far a section's canvas reaches past its row, sideways and above and below. */
   readonly surfaceInline: number;
   readonly surfaceBlock: number;
+  /** Crossfade between a card's DOM copy and its WebGL drawing, ms (fade.ts). */
+  readonly fadeMs: number;
 }
 
 /** A computed colour, which browsers serialize as `rgb(r, g, b)` or `rgba(r, g, b, a)`. */
@@ -54,6 +56,13 @@ export function readTokens(root: HTMLElement): GlTokens {
     if (Number.isNaN(v)) throw new TypeError(`gl tokens: ${name} is not a number`);
     return v;
   };
+  /** A duration token in ms; the build's CSS minifier writes 180ms as .18s. */
+  const duration = (name: string): number => {
+    const value = raw.getPropertyValue(name).trim();
+    const v = value.endsWith("ms") ? Number(value.slice(0, -2)) : Number(value.slice(0, -1)) * 1000;
+    if (Number.isNaN(v) || !/m?s$/.test(value)) throw new TypeError(`gl tokens: ${name} is not a duration`);
+    return v;
+  };
   try {
     return {
       paper: colour("--color-paper"),
@@ -74,6 +83,7 @@ export function readTokens(root: HTMLElement): GlTokens {
       foilSize: num("--foil-size") / 100,
       surfaceInline: num("--gl-margin-inline"),
       surfaceBlock: num("--gl-margin-block"),
+      fadeMs: duration("--gl-fade"),
     };
   } finally {
     probe.remove();

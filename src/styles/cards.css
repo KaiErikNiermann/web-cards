@@ -549,6 +549,13 @@
     --gl-card-shadow: none;
   }
 
+  /* Start-up crossfade (src/gl/fade.ts): the DOM copies stay drawn, fading out over the first
+     WebGL frames. */
+  .page-root[data-gl="on"][data-gl-fading] {
+    --gl-card-content: initial;
+    --gl-card-shadow: initial;
+  }
+
   /* Hybrid WebGL (opt-in, ?hybrid): cards draw in CSS at rest; one that moves is drawn on the
      overlay canvas meanwhile (data-gl-hy), its DOM layers out of the render tree as under
      full WebGL. */

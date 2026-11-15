@@ -15,6 +15,7 @@ import {
 } from "./dom";
 import { INTERACTIVE } from "./dom";
 import { mountGl } from "./gl";
+import { FADE_KEY, isFadeWanted } from "./gl/fade";
 import { HYBRID_KEY } from "./gl/hybrid";
 import { Hold } from "./gesture";
 import { mountHud, wireHudToggle } from "./hud";
@@ -630,22 +631,25 @@ function watchVisibility(): void {
 }
 
 /**
- * The panel's hybrid rendering toggle, shown only where it applies (WebGL with snapshot faces;
- * HTML-in-Canvas faces have no hybrid mode). The renderer is set up at load, so a change is
- * stored and the page reloads, without a `?hybrid` in the address that would override it.
+ * A panel toggle for a renderer setting chosen at load: shown only where `isShown`, it starts
+ * as `isOn`, and a change is stored under `key` and reloads the page without `param` in the
+ * address, which would override the stored choice.
  */
-function wireHybridToggle(): void {
-  const option = must(root, "[data-hybrid-option]", HTMLElement);
-  if (gl === undefined || root.dataset.glFaces !== "snapshot") {
+function wireReloadToggle(
+  name: string,
+  setting: { key: string; param: string; isShown: boolean; isOn: boolean },
+): void {
+  const option = must(root, `[data-${name}-option]`, HTMLElement);
+  if (!setting.isShown) {
     option.remove();
     return;
   }
-  const box = must(option, "[data-hybrid-toggle]", HTMLInputElement);
-  box.checked = gl.isHybrid;
+  const box = must(option, `[data-${name}-toggle]`, HTMLInputElement);
+  box.checked = setting.isOn;
   box.addEventListener("change", () => {
-    saveFlag(HYBRID_KEY, box.checked);
+    saveFlag(setting.key, box.checked);
     const url = new URL(location.href);
-    url.searchParams.delete("hybrid");
+    url.searchParams.delete(setting.param);
     location.replace(url);
   });
 }
@@ -656,7 +660,19 @@ function wire(): void {
     storageKey: "web-cards:hud",
     checkbox: must(root, "[data-hud-toggle]", HTMLInputElement),
   });
-  wireHybridToggle();
+  // Hybrid rendering applies to snapshot faces only (HTML-in-Canvas faces have no hybrid mode).
+  wireReloadToggle("hybrid", {
+    key: HYBRID_KEY,
+    param: "hybrid",
+    isShown: gl !== undefined && root.dataset.glFaces === "snapshot",
+    isOn: gl?.isHybrid ?? false,
+  });
+  wireReloadToggle("fade", {
+    key: FADE_KEY,
+    param: "glfade",
+    isShown: gl !== undefined,
+    isOn: isFadeWanted(),
+  });
   watchVisibility();
   wirePileHover();
   for (const { id, el } of chips) {

@@ -16,6 +16,7 @@ import { hasDomParts } from "./bake";
 import { drawableFaces, hasDrawableCanvas } from "./drawable";
 import { isOverlayOnly, raisedAboveOverlay } from "./layering";
 import type { FaceImages, FaceSource } from "./faces";
+import { isFadeWanted, mountFader, type Fader } from "./fade";
 import { isHybridWanted, mountHybrid, type Hybrid, type Motion } from "./hybrid";
 import { watchLiveFaces } from "./live";
 import { paint as paintText } from "./livetext";
@@ -287,6 +288,8 @@ export function mountGl(o: GlOptions): GlRenderer {
   const isHybrid = !drawable && isHybridWanted();
   /** Hybrid: which cards WebGL draws (hybrid.ts); set once the renderer is on. */
   let hybrid: Hybrid | undefined;
+  /** Crossfades between DOM copies and WebGL (fade.ts); set once the renderer is on. */
+  let fader: Fader | undefined;
   if (isHybrid) root.dataset.glHybrid = "";
   let faces: ReadonlyMap<string, FaceImages> = new Map();
   /** Geometry the faces were rasterized at; a change of card size rasterizes them again. */
@@ -421,7 +424,9 @@ export function mountGl(o: GlOptions): GlRenderer {
   function place(c: CardRefs, geo: Geometry, mat: MaterialView, t: GlTokens): Placed | undefined {
     const home = table.homes.get(c.def.id);
     // A card someone is interacting with is drawn by the DOM meanwhile (live.ts).
-    if (!home || c.slot.dataset.glDom !== undefined) return undefined;
+    // Mid-fade (fade.ts) WebGL still draws it under its DOM copy.
+    const isInDom = c.slot.dataset.glDom !== undefined && !(fader?.isFading(c.def.id) ?? false);
+    if (!home || isInDom) return undefined;
     const fr = cardFrame(c.def, table.view(c.def.id), geo, mat, o.show(c));
     const sh = shadows(fr, isPlainCard(c, fr));
     const shadowReach = Math.max(
@@ -690,6 +695,7 @@ export function mountGl(o: GlOptions): GlRenderer {
     return (
       isForced ||
       (hybrid?.isBusy() ?? false) ||
+      (fader?.isBusy() ?? false) ||
       dirtyCards.size > 0 ||
       (overlay?.drawn.size ?? 0) > 0 ||
       sections.some(
@@ -789,12 +795,26 @@ export function mountGl(o: GlOptions): GlRenderer {
       tokens = t;
       await rasterizeAll(o.geometry());
       makeSurfaces(t, grain);
+      const fades = mountFader({
+        ms: isFadeWanted() ? t.fadeMs : 0,
+        redraw: () => {
+          isForced = true;
+          schedule();
+        },
+      });
+      fader = fades;
       root.dataset.gl = "on";
-      if (drawable) {
-        // Every face is real and drawn by the browser into its canvas: no snapshots to keep
-        // fresh, no DOM phase; the invisible face takes input directly.
-        for (const c of cards) c.slot.dataset.glGhost = "";
-      } else if (isHybrid) {
+      // The DOM copies fade out over the first WebGL frames (in the hybrid they stay: CSS draws
+      // cards at rest there). Ghost faces (HTML-in-Canvas) go invisible once that is done.
+      if (!isHybrid) root.dataset.glFading = "";
+      fades.fadeOutAll(isHybrid ? [] : cards, () => {
+        delete root.dataset.glFading;
+        if (drawable) for (const c of cards) c.slot.dataset.glGhost = "";
+      });
+      // HTML-in-Canvas faces need neither: every face is real and drawn by the browser into its
+      // canvas, with no snapshots to keep fresh and no DOM phase; the invisible face (a ghost,
+      // above) takes input directly.
+      if (isHybrid) {
         // A card at rest is the DOM already: no DOM phase, only fresh snapshots for its moves.
         hybrid = mountHybrid({
           cards,
@@ -803,15 +823,14 @@ export function mountGl(o: GlOptions): GlRenderer {
           hasPatchedText,
           editingChanged: o.editingChanged,
         });
-      } else
+      } else if (!drawable)
         watchLiveFaces({
           cards,
           isOn: () => root.dataset.gl === "on",
           refresh,
           hasPatchedText,
-          changed: () => {
-            isForced = true;
-            schedule();
+          handover: (c, to, apply) => {
+            fades.handover(c, to, apply);
           },
         });
       isForced = true;
