@@ -401,7 +401,6 @@
     border-radius: calc(var(--r) + var(--ring-glow-pad));
     filter: blur(var(--ring-glow-blur));
     inset: calc(var(--ring-glow-pad) * -1);
-    opacity: 0.9;
   }
 
   .orbit-spin {
@@ -418,6 +417,13 @@
     inset-block-start: 50%;
     inset-inline-start: 50%;
     position: absolute;
+  }
+
+  /* The glow's 0.9 sits on its sweep, not on the glow: an opacity on a child of .card
+     overrode the ghost's 0 (WebGL with HTML-in-Canvas faces), and the glow showed through
+     the invisible face over the WebGL card. */
+  .orbit-glow > .orbit-spin {
+    opacity: 0.9;
   }
 
 
