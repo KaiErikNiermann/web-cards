@@ -76,6 +76,12 @@ const newStats = (): GlStats => ({
   hiddenCards: 0,
 });
 
+/**
+ * Hybrid: cards stay WebGL's this long after the page last scrolled. Scrolled as CSS, the
+ * cards' layers, blend modes and filters cost the phone's Firefox every scrolled frame
+ * (bench/phone.py scroll, CSS 82/30, WebGL 103/60, hybrid scrolled as CSS 56/17 fps).
+ */
+const SCROLL_SETTLE_MS = 300;
 // TEMP: draw-cost experiment switches.
 const EXTRA = ["dup", "fill", "nodraw"].find((k) => location.search.includes(`gl${k}`)) ?? "";
 /**
@@ -287,6 +293,8 @@ export function mountGl(o: GlOptions): GlRenderer {
   let lastDraw = -1;
   /** Page scroll and the root's offset in the document, for culling cards off screen. */
   let scrollTop = scrollY;
+  /** Hybrid: when the page last scrolled (performance.now ms); cards scroll as WebGL. */
+  let scrolledAt = -Infinity;
   let rootTop = 0;
   /** Cards whose live text changed since the last frame. */
   const dirtyCards = new Set<string>();
@@ -399,6 +407,7 @@ export function mountGl(o: GlOptions): GlRenderer {
       () => {
         // Cached here, so no frame reads scroll position after its own style writes.
         scrollTop = scrollY;
+        scrolledAt = performance.now();
         schedule();
       },
       { passive: true },
@@ -598,6 +607,30 @@ export function mountGl(o: GlOptions): GlRenderer {
     statsAt = now;
   }
 
+  /** The cards WebGL draws this frame, by canvas (undefined: the overlay). */
+  function route(
+    geo: Geometry,
+    mat: MaterialView,
+    t: GlTokens,
+    now: number,
+  ): Map<SectionSurface | undefined, Placed[]> {
+    const bySurface = new Map<SectionSurface | undefined, Placed[]>();
+    for (const c of cards) {
+      const p = place(c, geo, mat, t);
+      if (!p) continue;
+      // Hybrid: only cards that move, are showcased or scroll are WebGL's. Moving and
+      // showcased ones go on the overlay; scrolling ones on their row's canvas, which
+      // scrolls with the page.
+      const motion = hybrid ? motionOf(p) : "rest";
+      if (hybrid && !hybrid.isOnGl(c, motion, now)) continue;
+      const isFlying = motion === "held" || motion === "moving";
+      const key = isHybrid && isFlying ? undefined : surfaceFor(p, origins);
+      bySurface.set(key, [...(bySurface.get(key) ?? []), p]);
+    }
+    hybrid?.settle(now);
+    return bySurface;
+  }
+
   function frame(now: number): void {
     const t = tokens;
     const ov = overlay;
@@ -619,15 +652,7 @@ export function mountGl(o: GlOptions): GlRenderer {
     const top = (scrollTop - rootTop) / sc - reach;
     const bottom = (scrollTop - rootTop + innerHeight) / sc + reach;
     const isNear = (p: Placed): boolean => p.cy + p.box[3] >= top && p.cy + p.box[1] <= bottom;
-    const bySurface = new Map<SectionSurface | undefined, Placed[]>();
-    for (const c of cards) {
-      const p = place(c, geo, ctx.mat, t);
-      if (!p) continue;
-      // Hybrid: only cards in motion or in the showcase are WebGL's, all on the overlay.
-      if (hybrid && !hybrid.isOnGl(c, motionOf(p), now)) continue;
-      const key = isHybrid ? undefined : surfaceFor(p, origins);
-      bySurface.set(key, [...(bySurface.get(key) ?? []), p]);
-    }
+    const bySurface = route(geo, ctx.mat, t, now);
     for (const [s, at] of origins) {
       drawSection(s, (bySurface.get(s) ?? []).filter((p) => isNear(p)).toSorted(byZ), at, ctx);
     }
@@ -653,7 +678,8 @@ export function mountGl(o: GlOptions): GlRenderer {
   function motionOf(p: Placed): Motion {
     const ph = table.ph(p.c.def.id);
     if (p.fr.isShown || ph.drag) return "held";
-    return ph.live ? "moving" : "rest";
+    if (ph.live) return "moving";
+    return performance.now() - scrolledAt < SCROLL_SETTLE_MS ? "scrolling" : "rest";
   }
 
   function isFrameNeeded(): boolean {

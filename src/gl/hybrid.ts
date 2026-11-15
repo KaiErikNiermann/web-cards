@@ -1,6 +1,7 @@
 // Hybrid rendering (`?gl&hybrid`, snapshot faces): every card draws in CSS at rest, where
-// Firefox keeps static cards cached, and on the overlay canvas only while it moves or is
-// showcased (`data-gl-hy` on its slot takes its DOM layers out of the render tree).
+// Firefox keeps static cards cached, and in WebGL while it moves or is showcased (on the
+// overlay canvas) or while the page scrolls (on its row's canvas). `data-gl-hy` on its slot
+// takes its DOM layers out of the render tree meanwhile.
 //
 // What keeps the two looking like one card:
 // - Effects run on the card's CSS animation clock. Going to WebGL, the card's animation time
@@ -29,12 +30,17 @@ export interface HybridOptions {
   readonly editingChanged: () => void;
 }
 
-/** A card's motion this frame: dragged or showcased (`held`), moving in the physics, at rest. */
-export type Motion = "rest" | "moving" | "held";
+/**
+ * A card's motion this frame: dragged or showcased (`held`), moving in the physics, scrolling
+ * with the page, at rest.
+ */
+export type Motion = "rest" | "scrolling" | "moving" | "held";
 
 export interface Hybrid {
   /** Whether WebGL draws the card this frame, handing it over when that changes. */
   isOnGl(c: CardRefs, motion: Motion, now: number): boolean;
+  /** Finishes this frame's handovers to CSS; call after `isOnGl` for every card. */
+  settle(now: number): void;
   /** Seconds to add to the frame time for this card's effects (its CSS animation clock). */
   phase(id: string): number;
   /** Whether a card is on WebGL or waiting to go back, so frames must keep coming. */
@@ -62,9 +68,19 @@ const hasFocus = (c: CardRefs): boolean => {
   return el !== null && el.matches(EDITING) && c.card.contains(el);
 };
 
-/** The card's running or paused CSS animations (its layers and face). */
-const cssAnimations = (c: CardRefs): CSSAnimation[] =>
-  c.card.getAnimations({ subtree: true }).filter((a) => a instanceof CSSAnimation);
+/**
+ * Every CSS animation on the page, by the card it runs in. One read flushes style once; read
+ * card by card between attribute changes, a scroll that handed 27 cards over flushed 27 times.
+ */
+function animationsByCard(): Map<Element, CSSAnimation[]> {
+  const out = new Map<Element, CSSAnimation[]>();
+  for (const a of document.getAnimations()) {
+    if (!(a instanceof CSSAnimation) || !(a.effect instanceof KeyframeEffect)) continue;
+    const card = a.effect.target?.closest(".card");
+    if (card) out.set(card, [...(out.get(card) ?? []), a]);
+  }
+  return out;
+}
 
 export function mountHybrid(o: HybridOptions): Hybrid {
   /** Cards on WebGL, until the time (ms) they go back to CSS. */
@@ -186,7 +202,10 @@ export function mountHybrid(o: HybridOptions): Hybrid {
     const isEditing = pressed.has(c.def.id) || hasFocus(c);
     // The renderer skips cards in the DOM phase, so one on WebGL (lifted by a hover) comes
     // back here, not in a frame.
-    if (isEditing && until.delete(c.def.id)) toCss(c, performance.now());
+    if (isEditing && until.delete(c.def.id)) {
+      toCss(c);
+      settle(performance.now());
+    }
     c.slot.toggleAttribute("data-gl-dom", isEditing);
     // This card becomes the one edited, or stops being it; another card's editing stays.
     const wasEditing = editingId === c.def.id;
@@ -195,21 +214,42 @@ export function mountHybrid(o: HybridOptions): Hybrid {
     o.editingChanged();
   }
 
+  /** This frame's animations by card, read before any card of the frame is handed over. */
+  let readAt = NaN;
+  let byCard = new Map<Element, CSSAnimation[]>();
+  /** Cards handed back to CSS this frame: their animations are set once style has run. */
+  const returning: CardRefs[] = [];
+
   function toGl(c: CardRefs, now: number): void {
+    if (readAt !== now) {
+      readAt = now;
+      byCard = animationsByCard();
+    }
     // The card's own animation time continues on WebGL; with none running, the frame clock.
-    const t = cssAnimations(c).find((a) => a.currentTime !== null)?.currentTime;
+    const t = byCard.get(c.card)?.find((a) => a.currentTime !== null)?.currentTime;
     phases.set(c.def.id, typeof t === "number" ? (t - now) / 1000 : 0);
     c.slot.toggleAttribute("data-gl-hy", true);
     if (ghosts.has(c.def.id)) c.slot.dataset.glGhost = "";
   }
 
-  function toCss(c: CardRefs, now: number): void {
-    const shift = phases.get(c.def.id) ?? 0;
-    phases.delete(c.def.id);
+  function toCss(c: CardRefs): void {
     c.slot.toggleAttribute("data-gl-hy", false);
     delete c.slot.dataset.glGhost;
-    // The layers come back with their animations restarted: set them to where WebGL was.
-    for (const a of cssAnimations(c)) a.currentTime = now + shift * 1000;
+    returning.push(c);
+  }
+
+  /** The layers of cards handed back come back with their animations restarted: set them to
+   * where WebGL was, all in one read. */
+  function settle(now: number): void {
+    if (returning.length === 0) return;
+    const anims = animationsByCard();
+    const cards = returning.splice(0);
+    for (const c of cards) {
+      const shift = phases.get(c.def.id) ?? 0;
+      phases.delete(c.def.id);
+      const own = anims.get(c.card) ?? [];
+      for (const a of own) a.currentTime = now + shift * 1000;
+    }
   }
 
   return {
@@ -223,10 +263,11 @@ export function mountHybrid(o: HybridOptions): Hybrid {
       if (isOn && !wasOn) toGl(c, now);
       if (!isOn && wasOn) {
         until.delete(id);
-        toCss(c, now);
+        toCss(c);
       }
       return isOn;
     },
+    settle,
     phase: (id) => phases.get(id) ?? 0,
     isBusy: () => until.size > 0,
     editing: () => editingId,
