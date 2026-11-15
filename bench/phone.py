@@ -11,8 +11,9 @@ the device through `adb reverse`. For every version and section (page top, Anima
 Cardlets) the page is loaded fresh, the section scrolled to the middle of the screen, and
 requestAnimationFrame recorded for a few seconds after a 1 s settle; then two touch gestures
 (a card dragged along the full-size row, a finger slid along the Stack) are measured while
-they run. Rounds interleave the
-versions so heat and drift affect all of them alike. Pin the display's refresh rate first
+they run, and `scroll`: the whole page swiped down and back up with real touch input
+(`adb shell input swipe`, erratic swipes and flings from phone_scroll.py, seeded per round, the
+same for every version). Rounds interleave the versions so heat and drift affect all of them alike. Pin the display's refresh rate first
 (`adb shell settings put system min_refresh_rate 120.0` and `peak_refresh_rate 120.0`; undo
 with `settings delete system ...`): an adaptive display otherwise drops to 60 Hz on its own.
 Firefox's start-up prompts are answered by android_prompts.auto_answer, and the screen is kept
@@ -32,6 +33,7 @@ from typing import Annotated
 
 import typer
 from android_prompts import auto_answer
+from phone_scroll import erratic_scroll, screen_size
 from selenium import webdriver
 from selenium.webdriver.common.actions import interaction
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
@@ -250,12 +252,13 @@ def main(
     rows = [(v, name, extra, "") for v in versions for name, extra in variants] + [
         (v, f"?{q}", "", q) for d, q in queries for v in versions if v.name == d
     ]
+    size = screen_size(serial)
     with auto_answer(serial):
         driver = webdriver.Firefox(
             options=opts, service=Service(shutil.which("geckodriver"))
         )
         try:
-            for _ in range(rounds):
+            for round_no in range(rounds):
                 for v, label, extra, q in rows:
                     key = f"{v.name}{' ' + label if label else ''}"
 
@@ -299,6 +302,15 @@ def main(
                         fps = gesture(driver, target, dx, dy, fx, fy)
                         results.setdefault((key, name), []).append(fps)
                         print(f"{key} {name}: {fps}", flush=True)
+                    if not only or "scroll" in only:
+                        load()
+                        time.sleep(1)
+                        driver.execute_script(START_FRAMES)
+                        erratic_scroll(driver, serial, 1 + round_no, size, (1, -1))
+                        mean, floor, js = driver.execute_script(STOP_FRAMES)
+                        fps = Rates(float(mean), float(floor), float(js))
+                        results.setdefault((key, "scroll"), []).append(fps)
+                        print(f"{key} scroll: {fps}", flush=True)
         finally:
             driver.quit()
             server.shutdown()
@@ -320,6 +332,7 @@ def main(
         *sections,
         *(n for n in SHOWCASES if not only or n in only),
         *gestures,
+        *(["scroll"] if not only or "scroll" in only else []),
     ]
     keys = list(dict.fromkeys(k for k, _ in results))
     width = max(10, *(len(k) for k in keys))
@@ -338,4 +351,5 @@ def main(
         print(f"{k:<{width}}" + "".join(cells))
 
 
-typer.run(main)
+if __name__ == "__main__":
+    typer.run(main)

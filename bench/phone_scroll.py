@@ -140,19 +140,26 @@ def display_time(dump: str) -> str:
     )
 
 
-def run_sequence(
-    driver: webdriver.Firefox, serial: str, seed: int, width: int, height: int
-) -> Result:
+def screen_size(serial: str) -> tuple[int, int]:
+    """The phone's screen in device px."""
+    size = re.search(r"(\d+)x(\d+)", adb(serial, "shell", "wm", "size"))
+    return (int(size.group(1)), int(size.group(2))) if size else (1080, 2340)
+
+
+def erratic_scroll(
+    driver: webdriver.Firefox,
+    serial: str,
+    seed: int,
+    size: tuple[int, int],
+    sweeps: tuple[int, ...] = (1, -1, 1, -1),
+) -> None:
+    """Swipes the page with real touch input, one sweep per entry of `sweeps` (1 = down the
+    page to the bottom, -1 = up to the top), from a seeded pool of erratic swipes."""
     rng = random.Random(seed)
+    width, height = size
     x = width - 40  # the page gutter, clear of the cards
-    adb(serial, "shell", "dumpsys", "SurfaceFlinger", "--timestats", "-disable")
-    adb(
-        serial, "shell", "dumpsys", "SurfaceFlinger", "--timestats", "-clear", "-enable"
-    )
-    driver.execute_script(START_FRAMES)
-    t0 = time.monotonic()
     y = 0
-    for sign in (1, -1, 1, -1):
+    for sign in sweeps:
         for s in swipes(rng, sign)[:40]:
             # Never drag the page down while it is near the top: Firefox would take it as
             # pull-to-refresh and reload the page.
@@ -175,6 +182,18 @@ def run_sequence(
             if (sign > 0 and y >= bottom - 2) or (sign < 0 and y <= NEAR_TOP):
                 break
     time.sleep(1.0)  # let the last fling settle
+
+
+def run_sequence(
+    driver: webdriver.Firefox, serial: str, seed: int, width: int, height: int
+) -> Result:
+    adb(serial, "shell", "dumpsys", "SurfaceFlinger", "--timestats", "-disable")
+    adb(
+        serial, "shell", "dumpsys", "SurfaceFlinger", "--timestats", "-clear", "-enable"
+    )
+    driver.execute_script(START_FRAMES)
+    t0 = time.monotonic()
+    erratic_scroll(driver, serial, seed, (width, height))
     seconds = time.monotonic() - t0
     raf = driver.execute_script(STOP_FRAMES)
     dump = adb(serial, "shell", "dumpsys", "SurfaceFlinger", "--timestats", "-dump")
@@ -233,8 +252,7 @@ def main(
     )
     threading.Thread(target=server.serve_forever, daemon=True).start()
     adb(serial, "reverse", f"tcp:{PORT}", f"tcp:{PORT}")
-    size = re.search(r"(\d+)x(\d+)", adb(serial, "shell", "wm", "size"))
-    width, height = (int(size.group(1)), int(size.group(2))) if size else (1080, 2340)
+    width, height = screen_size(serial)
     if refresh == "120":
         adb(serial, "shell", "settings", "put", "system", "min_refresh_rate", "120.0")
         adb(serial, "shell", "settings", "put", "system", "peak_refresh_rate", "120.0")
@@ -312,4 +330,5 @@ def main(
         )
 
 
-typer.run(main)
+if __name__ == "__main__":
+    typer.run(main)
