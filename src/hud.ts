@@ -6,6 +6,7 @@
 // so "CPU" is the share of each frame spent in this app's physics and render, and the GPU row
 // gives the renderer's name only. The heap and long-frame rows exist in Chromium only.
 
+import { loadFlag, saveFlag } from "./storage";
 import { setText } from "./view";
 
 /** Frames kept for the graph and the percentile, at 60 Hz about five seconds. */
@@ -317,18 +318,8 @@ export function wireHudToggle(
   const set = (isShown: boolean): void => {
     hud.show(isShown);
     if (options.checkbox) options.checkbox.checked = isShown;
-    try {
-      localStorage.setItem(options.storageKey, isShown ? "1" : "0");
-    } catch {
-      // Storage can be blocked (private mode); the overlay just is not remembered.
-    }
+    saveFlag(options.storageKey, isShown);
   };
-  let stored: string | undefined;
-  try {
-    stored = localStorage.getItem(options.storageKey) ?? undefined;
-  } catch {
-    // As above: nothing stored.
-  }
   options.checkbox?.addEventListener("change", () => {
     set(options.checkbox?.checked ?? false);
   });
@@ -339,6 +330,6 @@ export function wireHudToggle(
   });
   const isWanted =
     new URLSearchParams(location.search).has("hud") ||
-    (stored === undefined ? (options.initial ?? false) : stored === "1");
+    (loadFlag(options.storageKey) ?? options.initial ?? false);
   set(isWanted);
 }
