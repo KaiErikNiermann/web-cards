@@ -49,7 +49,7 @@ So Drawable shows each browser's faces as that browser draws them; Snapshot make
 | Chrome, Snapshot | 1783 ms | 1347 ms | 60 fps median, p5 59 | 60 fps median, p5 59, 3 frames over 25 ms | 870 / 888 MB |
 
 - In Chrome, Drawable was ready in about half the time of Snapshot (557 against 1347 ms to rasterize), dropped no frames while the showcase opened (Snapshot dropped 3, from its sharper re-snapshot), and used about 80-110 MB less.
-- Chrome ran at 60 Hz on this phone although the display was pinned to 120 Hz, so frame rates compare within Chrome only. Firefox ran at 120 Hz; its 9 long frames in the showcase are the sharper re-snapshot about 900 ms in.
+- Chrome ran page frames at 60 Hz on this phone although the display was pinned to 120 Hz, so frame rates compare within Chrome only. This is Chromium's main-frame throttle (`ThrottleMainFrameTo60Hz`, on by default on Android): on displays above about 108 Hz, `requestAnimationFrame` and everything drawn from it run at half the refresh rate while the compositor keeps the full rate. In Chrome 157 on this phone, main-thread rAF ran at 59.6 fps and a worker's `OffscreenCanvas` rAF at 119.4 fps on the same page. With the feature turned off (`--disable-features=ThrottleMainFrameTo60Hz`), both backends ran the Lab and the showcase at 119 fps median, 117.6 fps 5th percentile, in two interleaved rounds; with it on, at 59.5-59.9. The 60 fps is the browser default, not a limit of either backend. Firefox ran at 120 Hz; its 9 long frames in the showcase are the sharper re-snapshot about 900 ms in.
 - PSS is the browser's whole footprint (every process), so it compares the two Chrome backends with each other better than Chrome with Firefox.
 
 ## Limits
