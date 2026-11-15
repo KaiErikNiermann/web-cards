@@ -20,6 +20,10 @@ Choosing:
 
 The HUD (`?hud`) shows the backend in use next to "webgl".
 
+## HTML-in-Canvas outside Chromium
+
+As of 2026-11-15, Firefox has no HTML-in-Canvas and no announced plans for it, so Snapshot is the Firefox backend for the foreseeable future. Mozilla's standards-position request ([mozilla/standards-positions#1076](https://github.com/mozilla/standards-positions/issues/1076), open since September 2024) carries no position yet, and no implementation bug turned up on Bugzilla. Chromium's intent to extend its experiment lists Gecko as "No signal" ([blink-dev](http://www.mail-archive.com/blink-dev@chromium.org/msg17385.html)). In that thread (March 2026), Mozilla engineers objected that the API lets scripts read back how the browser rendered HTML: it would make rendering observable, upgrade fingerprinting (fonts, GPU and driver quirks, colour profiles, accessibility settings), and invite pages that depend on one browser's exact pixels. They also said that rich UIs drawn in canvas are something Mozilla wants to push back on rather than make easier. Chromium's answer, a privacy-preserving painting mode instead of tainting the canvas, was still under discussion. Safari has no implementation either.
+
 ## What was measured
 
 `bench/matrix.py` (`just matrix --serial …`) ran on a Samsung SM-A576B (Android 17, Xclipse GPU) with Firefox 160 and Chrome 157, on 2026-11-14. Full tables: `bench/results/face-backends-2026-11-14.md`.
