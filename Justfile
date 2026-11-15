@@ -56,6 +56,10 @@ matrix *flags: build
 parity target="phone" *flags: build
     uv run bench/parity.py dist --target {{ target }} {{ flags }}
 
+# Whole cards on a phone: CSS, Firefox WebGL and Chrome WebGL, compared pairwise
+card-parity serial *flags: build
+    uv run bench/card_parity.py dist --serial {{ serial }} {{ flags }}
+
 # --- Combined ---
 
 # What the pre-push hook runs

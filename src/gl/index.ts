@@ -74,6 +74,13 @@ const newStats = (): GlStats => ({
 
 // TEMP: draw-cost experiment switches.
 const EXTRA = ["dup", "fill", "nodraw"].find((k) => location.search.includes(`gl${k}`)) ?? "";
+/**
+ * `?glfreeze=SECONDS` draws every effect at that time, for parity screenshots against CSS
+ * animations paused at the same time (bench/card_parity.py).
+ */
+const FREEZE_PARAM = new URLSearchParams(location.search).get("glfreeze");
+// Checked for null first: Number("") is 0, which would freeze every page at time 0.
+const FREEZE_S = FREEZE_PARAM === null ? NaN : Number(FREEZE_PARAM);
 
 const easeInOut = BezierEasing(0.42, 0, 0.58, 1);
 const sweepEase = BezierEasing(0.5, 0, 0.3, 1);
@@ -593,7 +600,8 @@ export function mountGl(o: GlOptions): GlRenderer {
     if (!t || !ov || root.dataset.gl !== "on") return;
     const t0 = performance.now();
     lastDraw = now;
-    const ctx: FrameCtx = { mat: materialView(table.m), t, time: now / 1000 };
+    const time = Number.isFinite(FREEZE_S) ? FREEZE_S : now / 1000;
+    const ctx: FrameCtx = { mat: materialView(table.m), t, time };
     const geo = o.geometry();
     // Reading layout here, after the frame's style writes, would force a style and layout pass
     // every frame; row positions change only with a forced redraw (relayout, resize).

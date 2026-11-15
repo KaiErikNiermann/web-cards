@@ -83,6 +83,7 @@ class Browser(Protocol):
     def js(self, expr: str) -> object: ...
     def snap(self, fixture: str, scale: float, fn: str = "snap") -> str: ...
     def shot(self, fixture: str) -> bytes: ...
+    def shot_of(self, selector: str) -> bytes: ...
 
 
 class SeleniumBrowser:
@@ -107,7 +108,10 @@ class SeleniumBrowser:
         )
 
     def shot(self, fixture: str) -> bytes:
-        el = self.d.find_element(By.CSS_SELECTOR, FACE.format(fixture))
+        return self.shot_of(FACE.format(fixture))
+
+    def shot_of(self, selector: str) -> bytes:
+        el = self.d.find_element(By.CSS_SELECTOR, selector)
         self.d.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
         time.sleep(0.3)
         return el.screenshot_as_png
@@ -127,7 +131,10 @@ class PlaywrightBrowser:
         return str(self.page.evaluate(f"([id, s]) => parity.{fn}(id, s).catch((e) => 'ERR ' + e)", [fixture, scale]))
 
     def shot(self, fixture: str) -> bytes:
-        loc = self.page.locator(FACE.format(fixture))
+        return self.shot_of(FACE.format(fixture))
+
+    def shot_of(self, selector: str) -> bytes:
+        loc = self.page.locator(selector)
         loc.scroll_into_view_if_needed()
         return loc.screenshot()
 
