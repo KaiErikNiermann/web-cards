@@ -4,6 +4,8 @@
 // an empty date field), so the snapshot's copy of a face swaps each control for plain elements
 // drawn like it (gl-controls.css), sized to the control's box and showing its state.
 
+import { parsePx } from "./art";
+
 /** Computed properties a field stand-in takes over from its control. */
 const FIELD_STYLE = [
   "font-family",
@@ -137,6 +139,36 @@ function standIn(control: HTMLElement, style: CSSStyleDeclaration): HTMLElement 
 }
 
 /**
+ * Draws the resize grip over each resizable, visible textarea in `cell` (an atlas cell, which
+ * positions it): Firefox leaves the grip out of the SVG image. The grip sits inside the
+ * textarea's border, at its block-end and inline-end corner.
+ */
+function addGrips(cell: HTMLElement): void {
+  const origin = cell.getBoundingClientRect();
+  const grips = [...cell.querySelectorAll("textarea")].flatMap((area) => {
+    const style = getComputedStyle(area);
+    if (style.resize === "none" || style.visibility !== "visible") return [];
+    const box = area.getBoundingClientRect();
+    const isRtl = style.direction === "rtl";
+    const bottom = box.bottom - origin.top - parsePx(style.borderBottomWidth);
+    const side = isRtl
+      ? box.left - origin.left + parsePx(style.borderLeftWidth)
+      : box.right - origin.left - parsePx(style.borderRightWidth);
+    const grip = el("gl-ctl-grip");
+    grip.toggleAttribute("data-rtl", isRtl);
+    grip.style.setProperty("top", `calc(${String(bottom)}px - var(--ctl-grip-size) - var(--ctl-grip-inset))`);
+    grip.style.setProperty(
+      "left",
+      isRtl
+        ? `calc(${String(side)}px + var(--ctl-grip-inset))`
+        : `calc(${String(side)}px - var(--ctl-grip-size) - var(--ctl-grip-inset))`,
+    );
+    return [grip];
+  });
+  cell.append(...grips);
+}
+
+/**
  * Swaps the form controls in `clone` (a laid-out copy of a face) for stand-ins. Every box is
  * measured before any is swapped, so a swap never moves the next control.
  */
@@ -158,4 +190,5 @@ export function swapControls(clone: HTMLElement): void {
     }
     control.replaceWith(out);
   }
+  addGrips(clone);
 }

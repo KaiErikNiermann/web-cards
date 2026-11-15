@@ -239,6 +239,11 @@
     --ctl-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23333' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --ctl-chevron-size: 12px;
 
+    /* A textarea's resize grip: three strokes and a dot in the bottom corner. */
+    --ctl-grip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 9L9 1M3.8 9L9 3.8M6.6 9L9 6.6M8.9 8.9h.1' fill='none' stroke='%238f8f9d' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E");
+    --ctl-grip-size: 10px;
+    --ctl-grip-inset: 2px;
+
     /* Build bake stage (gl-bake.css): space between the staged faces. */
     --bake-gap: 8px;
   }

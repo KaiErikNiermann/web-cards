@@ -26,7 +26,8 @@ function offsetWithin(el: HTMLElement, ancestor: HTMLElement): [number, number] 
   return [x, y];
 }
 
-const px = (v: string): number => Number(v.replace("px", ""));
+/** A computed length in px as a number ("1.5px" -> 1.5). */
+export const parsePx = (v: string): number => Number(v.replace("px", ""));
 
 /** The image downscaled to `width` px, shared by every card that shows it at that size. */
 function bitmap(img: HTMLImageElement, width: number): Promise<ImageBitmap> {
@@ -72,7 +73,7 @@ function measure(faceEl: HTMLElement, img: HTMLImageElement): ArtGeometry | unde
     y,
     w: box.offsetWidth,
     h: box.offsetHeight,
-    r: box === faceEl ? 0 : px(getComputedStyle(box).borderTopLeftRadius),
+    r: box === faceEl ? 0 : parsePx(getComputedStyle(box).borderTopLeftRadius),
     fx: Number(posX.replace("%", "")) / 100,
     fy: Number(posY.replace("%", "")) / 100,
     isPar: par !== undefined,

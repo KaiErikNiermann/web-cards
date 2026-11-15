@@ -113,4 +113,18 @@
     background: var(--ctl-option-on);
     color: var(--ctl-option-on-ink);
   }
+
+  /* A textarea's resize grip, which Firefox leaves out of the SVG image. Placed over the
+     textarea's bottom corner by controls.ts, mirrored for right-to-left text. */
+  .gl-ctl-grip {
+    background: var(--ctl-grip) center / contain no-repeat;
+    block-size: var(--ctl-grip-size);
+    inline-size: var(--ctl-grip-size);
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .gl-ctl-grip[data-rtl] {
+    scale: -1 1;
+  }
 }
