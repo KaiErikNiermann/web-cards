@@ -19,15 +19,7 @@ import { Hold } from "./gesture";
 import { mountHud, wireHudToggle } from "./hud";
 import { CardTable, type Pile, type Point } from "./physics";
 import { Showcase, type ShowFrame } from "./showcase";
-import {
-  cardSize,
-  cardView,
-  materialView,
-  setAttr,
-  setHidden,
-  setText,
-  setVars,
-} from "./view";
+import { cardSize, cardView, materialView, setAttr, setHidden, setText, setVars } from "./view";
 
 const root = must(document, "[data-root]", HTMLElement);
 const table = new CardTable();

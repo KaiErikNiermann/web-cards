@@ -92,7 +92,7 @@ function sweepAt(t: number): number {
 /** `animation: ember 2.8s ease-in-out`: opacity 0.25 to 0.6 and back. */
 function emberAt(t: number): number {
   const u = (t / 2.8) % 1;
-  const e = easeInOut((u < 0.5 ? u : (1 - u)) * 2);
+  const e = easeInOut((u < 0.5 ? u : 1 - u) * 2);
   return 0.25 + 0.35 * e;
 }
 
@@ -138,7 +138,12 @@ function quadBox(
   d: number,
 ): [number, number, number, number] {
   const box: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
-  for (const [x, y] of [[-hw, -hh], [hw, -hh], [-hw, hh], [hw, hh]] as const) {
+  for (const [x, y] of [
+    [-hw, -hh],
+    [hw, -hh],
+    [-hw, hh],
+    [hw, hh],
+  ] as const) {
     const px = (m[0] ?? 0) * x + (m[3] ?? 0) * y;
     const py = (m[1] ?? 0) * x + (m[4] ?? 0) * y;
     const w = 1 - ((m[2] ?? 0) * x + (m[5] ?? 0) * y) / d;
@@ -356,7 +361,14 @@ export function mountGl(o: GlOptions): GlRenderer {
       // Kept in the back-forward cache, the page may come back; it then reloads to redraw.
       for (const s of sections) s.surface.release();
       ov.surface.release();
-      if (e.persisted) addEventListener("pageshow", () => { location.reload(); }, { once: true });
+      if (e.persisted)
+        addEventListener(
+          "pageshow",
+          () => {
+            location.reload();
+          },
+          { once: true },
+        );
     });
     addEventListener(
       "scroll",
@@ -483,7 +495,6 @@ export function mountGl(o: GlOptions): GlRenderer {
     return isInside ? own : undefined;
   }
 
-
   /** Redraws a section canvas when anything on it moved, animates or changed. */
   function drawSection(s: SectionSurface, list: readonly Placed[], at: Point, ctx: FrameCtx): void {
     const ids = new Set(list.map((p) => p.c.def.id));
@@ -586,7 +597,9 @@ export function mountGl(o: GlOptions): GlRenderer {
     if (list.length > 0 || ov.drawn.size > 0) {
       ov.drawn = new Set(list.map((p) => p.c.def.id));
       const raised = new Set(
-        [...raisedAboveOverlay(list, (p) => domPartIds.has(p.c.def.id), isOverlapping)].map((p) => p.c.def.id),
+        [...raisedAboveOverlay(list, (p) => domPartIds.has(p.c.def.id), isOverlapping)].map(
+          (p) => p.c.def.id,
+        ),
       );
       for (const c of withDomParts) c.slot.toggleAttribute("data-gl-top", raised.has(c.def.id));
       const rr = root.getBoundingClientRect();
@@ -703,16 +716,17 @@ export function mountGl(o: GlOptions): GlRenderer {
         // Every face is real and drawn by the browser into its canvas: no snapshots to keep
         // fresh, no DOM phase; the invisible face takes input directly.
         for (const c of cards) c.slot.dataset.glGhost = "";
-      } else watchLiveFaces({
-        cards,
-        isOn: () => root.dataset.gl === "on",
-        refresh,
-        hasPatchedText,
-        changed: () => {
-          isForced = true;
-          schedule();
-        },
-      });
+      } else
+        watchLiveFaces({
+          cards,
+          isOn: () => root.dataset.gl === "on",
+          refresh,
+          hasPatchedText,
+          changed: () => {
+            isForced = true;
+            schedule();
+          },
+        });
       isForced = true;
       schedule();
     } catch (error: unknown) {
@@ -753,7 +767,8 @@ export function mountGl(o: GlOptions): GlRenderer {
  */
 function faceBackend(): "drawable" | "snapshot" {
   const want = new URLSearchParams(location.search).get("glsrc");
-  if (want === "drawable" && !hasDrawableCanvas()) throw new Error("gl: ?glsrc=drawable, but this browser has no HTML-in-Canvas");
+  if (want === "drawable" && !hasDrawableCanvas())
+    throw new Error("gl: ?glsrc=drawable, but this browser has no HTML-in-Canvas");
   if (want === "snapshot" || want === "canvas") return "snapshot";
   return hasDrawableCanvas() ? "drawable" : "snapshot";
 }
