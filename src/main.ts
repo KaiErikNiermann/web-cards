@@ -15,10 +15,12 @@ import {
 } from "./dom";
 import { INTERACTIVE } from "./dom";
 import { mountGl } from "./gl";
+import { HYBRID_KEY } from "./gl/hybrid";
 import { Hold } from "./gesture";
 import { mountHud, wireHudToggle } from "./hud";
 import { CardTable, type Pile, type Point } from "./physics";
 import { Showcase, type ShowFrame } from "./showcase";
+import { saveFlag } from "./storage";
 import { cardSize, cardView, materialView, setAttr, setHidden, setText, setVars } from "./view";
 
 const root = must(document, "[data-root]", HTMLElement);
@@ -132,9 +134,14 @@ function showOf(c: CardRefs): ShowFrame | undefined {
   return showcase.frameOf(c.def.id, { x: centre.x - home.x, y: centre.y - home.y }, fit);
 }
 
-/** WebGL rendering (`?gl`): the canvases draw the cards, the DOM cards only take input. */
-const gl = new URLSearchParams(location.search).has("gl")
-  ? mountGl({
+/**
+ * WebGL rendering: the canvases draw the cards, the DOM cards only take input. Where WebGL
+ * cannot start, the DOM cards draw themselves (`data-gl="failed"`); `?nogl` takes that path on
+ * purpose, to test it.
+ */
+const gl = new URLSearchParams(location.search).has("nogl")
+  ? undefined
+  : mountGl({
       root,
       table,
       sections,
@@ -146,8 +153,7 @@ const gl = new URLSearchParams(location.search).has("gl")
       editingChanged: () => {
         kick();
       },
-    })
-  : undefined;
+    });
 
 // The build bake's stage (`?bake`, scripts/bake-faces.ts): faces marked data-bake="build".
 if (new URLSearchParams(location.search).has("bake")) {
@@ -623,12 +629,34 @@ function watchVisibility(): void {
   for (const c of cards) io.observe(c.slot);
 }
 
+/**
+ * The panel's hybrid rendering toggle, shown only where it applies (WebGL with snapshot faces;
+ * HTML-in-Canvas faces have no hybrid mode). The renderer is set up at load, so a change is
+ * stored and the page reloads, without a `?hybrid` in the address that would override it.
+ */
+function wireHybridToggle(): void {
+  const option = must(root, "[data-hybrid-option]", HTMLElement);
+  if (gl === undefined || root.dataset.glFaces !== "snapshot") {
+    option.remove();
+    return;
+  }
+  const box = must(option, "[data-hybrid-toggle]", HTMLInputElement);
+  box.checked = gl.isHybrid;
+  box.addEventListener("change", () => {
+    saveFlag(HYBRID_KEY, box.checked);
+    const url = new URL(location.href);
+    url.searchParams.delete("hybrid");
+    location.replace(url);
+  });
+}
+
 function wire(): void {
   for (const c of cards) wireCard(c);
   wireHudToggle(hud, {
     storageKey: "web-cards:hud",
     checkbox: must(root, "[data-hud-toggle]", HTMLInputElement),
   });
+  wireHybridToggle();
   watchVisibility();
   wirePileHover();
   for (const { id, el } of chips) {

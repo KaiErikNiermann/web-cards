@@ -204,7 +204,7 @@
     will-change: transform;
   }
 
-  /* The card's own layers; WebGL rendering (?gl) takes them out of the render tree. */
+  /* The card's own layers; WebGL rendering takes them out of the render tree. */
   .card > * {
     display: var(--gl-card-content, block);
     opacity: var(--gl-card-ghost, 1);
@@ -541,7 +541,7 @@
     --_shadow: 0 1px 2px color-mix(in srgb, var(--shade) 45%, transparent);
   }
 
-  /* WebGL rendering (?gl, src/gl/): once the canvases take over ("on"), the DOM cards keep
+  /* WebGL rendering (src/gl/): once the canvases take over ("on"), the DOM cards keep
      their boxes for input but draw nothing, and their layers leave the render tree, so no
      animation of theirs runs. */
   .page-root[data-gl="on"] {
@@ -549,7 +549,7 @@
     --gl-card-shadow: none;
   }
 
-  /* Hybrid WebGL (?gl&hybrid): cards draw in CSS at rest; one that moves is drawn on the
+  /* Hybrid WebGL (opt-in, ?hybrid): cards draw in CSS at rest; one that moves is drawn on the
      overlay canvas meanwhile (data-gl-hy), its DOM layers out of the render tree as under
      full WebGL. */
   .page-root[data-gl-hybrid] {

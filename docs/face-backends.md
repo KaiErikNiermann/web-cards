@@ -1,6 +1,6 @@
 # Face backends
 
-In WebGL mode (`?gl`) each card's face reaches the GPU as a texture. Where that texture comes from is a backend, chosen per browser, and per element by `data-bake`.
+The cards are drawn with WebGL (the default; where WebGL cannot start, the DOM cards draw themselves, which `?nogl` forces for testing), and each card's face reaches the GPU as a texture. Where that texture comes from is a backend, chosen per browser, and per element by `data-bake`.
 
 ## The backends
 
@@ -12,9 +12,10 @@ In WebGL mode (`?gl`) each card's face reaches the GPU as a texture. Where that 
 
 Choosing:
 
-- `?gl` picks Drawable where the browser has it, else Snapshot.
-- `?gl&glsrc=snapshot` uses Snapshot in any browser, Chromium included.
-- `?gl&glsrc=drawable` insists on Drawable and fails where it is missing.
+- By default Drawable where the browser has it, else Snapshot.
+- `?glsrc=snapshot` uses Snapshot in any browser, Chromium included.
+- `?glsrc=drawable` insists on Drawable and fails where it is missing.
+- With Snapshot faces, hybrid rendering is opt-in (`?hybrid`, or the panel's "Hybrid rendering" toggle, remembered per browser; `?hybrid=0` forces it off): cards at rest draw in CSS and only cards that move, are showcased or scroll draw in WebGL. On the phone it matched CSS at rest and WebGL while moving, but full WebGL held up better overall, so it is off by default.
 - `data-bake="build"` on a face or back uses its baked image with either backend; on the dev server, which has no bake, it falls back to the backend.
 
 The HUD (`?hud`) shows the backend in use next to "webgl".
@@ -40,7 +41,7 @@ Fidelity is a backend's face against the same browser's own rendering of the sam
 
 So Drawable shows each browser's faces as that browser draws them; Snapshot makes Firefox and Chrome look more alike, at the cost of controls that do not match Chrome's; Build makes them identical, for what it covers.
 
-### Speed and memory (medians of 3 rounds, `?gl&lab`)
+### Speed and memory (medians of 3 rounds, `?lab`)
 
 | Config | Time to WebGL | Rasterizing faces | Lab at rest | Opening the showcase | Browser PSS at rest / after |
 | --- | --- | --- | --- | --- | --- |

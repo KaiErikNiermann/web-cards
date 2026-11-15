@@ -1,8 +1,8 @@
-// WebGL rendering of the card table, switched on with `?gl`. The DOM cards stay in place for
-// layout, hit-testing and accessibility but paint nothing; each section's row gets a WebGL2
-// canvas that scrolls with it, and a fixed canvas over the page draws cards that have left
-// their row (dragged or gliding home). Each card is one quad; its look is computed by the same
-// view.ts functions that feed the CSS renderer.
+// WebGL rendering of the card table, the default (`?nogl` tests the DOM fallback). The DOM
+// cards stay in place for layout, hit-testing and accessibility but paint nothing; each
+// section's row gets a WebGL2 canvas that scrolls with it, and a fixed canvas over the page
+// draws cards that have left their row (dragged or gliding home). Each card is one quad; its
+// look is computed by the same view.ts functions that feed the CSS renderer.
 
 import BezierEasing from "bezier-easing";
 
@@ -16,7 +16,7 @@ import { hasDomParts } from "./bake";
 import { drawableFaces, hasDrawableCanvas } from "./drawable";
 import { isOverlayOnly, raisedAboveOverlay } from "./layering";
 import type { FaceImages, FaceSource } from "./faces";
-import { mountHybrid, type Hybrid, type Motion } from "./hybrid";
+import { isHybridWanted, mountHybrid, type Hybrid, type Motion } from "./hybrid";
 import { watchLiveFaces } from "./live";
 import { paint as paintText } from "./livetext";
 import { snapshotFaces } from "./raster";
@@ -41,7 +41,7 @@ export interface GlOptions {
 export interface GlRenderer {
   /** Resolves once every face is rasterized and the canvases have taken over. */
   readonly ready: Promise<void>;
-  /** Hybrid rendering (`?gl&hybrid` with snapshot faces): CSS at rest, WebGL in motion. */
+  /** Hybrid rendering (opt-in, snapshot faces only): CSS at rest, WebGL in motion. */
   readonly isHybrid: boolean;
   /** Hybrid: the card being edited (a pointer on a control, focus in a field), if any. */
   editing(): string | undefined;
@@ -178,7 +178,11 @@ function quadBox(
 /** The card's two box shadows (cards.css .card --_shadow), the top one first. */
 /** The card's two box shadows (x, y, blur, alpha); a flat card has CSS's `data-flat` one. */
 function shadows(fr: CardFrame, isPlain = false): [number[], number[]] {
-  if (isPlain) return [[0, 1, 2, 0.45], [0, 0, 0, 0]];
+  if (isPlain)
+    return [
+      [0, 1, 2, 0.45],
+      [0, 0, 0, 0],
+    ];
   if (fr.isPile)
     return [
       [-3, 0, 8, 0.35],
@@ -277,10 +281,10 @@ export function mountGl(o: GlOptions): GlRenderer {
   const drawable = backend === "drawable" ? drawableFaces(root, onDrawn) : undefined;
   const source: FaceSource = drawable ?? snapshotFaces(root);
   /**
-   * Hybrid (`?gl&hybrid`, snapshot faces only): cards draw in CSS at rest, where Firefox keeps
+   * Hybrid (opt-in, snapshot faces only): cards draw in CSS at rest, where Firefox keeps
    * static cards cached, and on the overlay canvas only while they move or are showcased.
    */
-  const isHybrid = !drawable && new URLSearchParams(location.search).has("hybrid");
+  const isHybrid = !drawable && isHybridWanted();
   /** Hybrid: which cards WebGL draws (hybrid.ts); set once the renderer is on. */
   let hybrid: Hybrid | undefined;
   if (isHybrid) root.dataset.glHybrid = "";

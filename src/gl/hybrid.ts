@@ -1,4 +1,5 @@
-// Hybrid rendering (`?gl&hybrid`, snapshot faces): every card draws in CSS at rest, where
+// Hybrid rendering (opt-in: `?hybrid` or the panel's toggle; snapshot faces only): every card
+// draws in CSS at rest, where
 // Firefox keeps static cards cached, and in WebGL while it moves or is showcased (on the
 // overlay canvas) or while the page scrolls (on its row's canvas). `data-gl-hy` on its slot
 // takes its DOM layers out of the render tree meanwhile.
@@ -15,6 +16,7 @@
 //   stay visible over the canvas.
 
 import { INTERACTIVE, type CardRefs } from "../dom";
+import { loadFlag } from "../storage";
 import { hasDomParts, markDomParts } from "./bake";
 import { elementOf, isInPart, isLiveTextOnly } from "./live";
 
@@ -47,6 +49,19 @@ export interface Hybrid {
   readonly isBusy: () => boolean;
   /** The card being edited (a pointer on a control, focus in a field), if any. */
   readonly editing: () => string | undefined;
+}
+
+/** Where the panel's hybrid toggle keeps the viewer's choice. */
+export const HYBRID_KEY = "web-cards:hybrid";
+
+/**
+ * Whether hybrid rendering is wanted: `?hybrid` turns it on and `?hybrid=0` off; otherwise the
+ * viewer's stored choice, off by default. Full WebGL held its frame rate better overall on the
+ * phone, so the hybrid is opt-in for pages where it helps (see LOG.md).
+ */
+export function isHybridWanted(): boolean {
+  const param = new URLSearchParams(location.search).get("hybrid");
+  return param === null ? (loadFlag(HYBRID_KEY) ?? false) : param !== "0";
 }
 
 /** How long a card stays on WebGL after it stops moving, so it does not flap. */
