@@ -449,8 +449,16 @@ export function mountGl(o: GlOptions): GlRenderer {
   function drawOf(p: Placed, ox: number, oy: number, ctx: FrameCtx): CardDraw {
     const { mat, t, time } = ctx;
     const { fr, c } = p;
-    // A card at rest lands on whole device pixels, so its face samples texel for texel.
-    const isFlat = fr.rx === 0 && fr.ry === 0 && fr.rz === 0 && fr.skew === 0 && fr.scale === 1;
+    // A card at rest lands on whole device pixels, so its face samples texel for texel. Not a
+    // card with DOM parts: the live part over it keeps its fractional position, and snapping
+    // only the WebGL drawing moved one against the other by up to half a pixel as it settled.
+    const isFlat =
+      fr.rx === 0 &&
+      fr.ry === 0 &&
+      fr.rz === 0 &&
+      fr.skew === 0 &&
+      fr.scale === 1 &&
+      !domPartIds.has(c.def.id);
     const dpr = window.devicePixelRatio || 1;
     const snap = (v: number, half: number): number =>
       isFlat ? Math.round((v - half) * dpr) / dpr + half : v;
