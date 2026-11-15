@@ -50,11 +50,23 @@ export function specOf(page: HTMLElement, clone: HTMLElement, grid: DOMRect): Li
   const isCentred =
     cs.textAlign === "center" ||
     (parent?.display.includes("flex") === true && parent.alignItems === "center");
+  // Room to grow within the face: the box is measured around the text of the moment, and a
+  // counter that went from "1" to "13" was clipped to "1". Left-aligned text may run to the
+  // face's end; centred text grows evenly, keeping its centre.
+  const face = (
+    clone.closest("[data-face]") ??
+    clone.parentElement ??
+    clone
+  ).getBoundingClientRect();
+  const grow = Math.max(0, Math.min(r.x - face.x, face.right - r.right));
+  const [x, w] = isCentred
+    ? [r.x - grow, r.width + 2 * grow]
+    : [r.x, Math.max(r.width, face.right - r.x)];
   const spec = {
     el: page,
-    x: r.x - grid.x,
+    x: x - grid.x,
     y: r.y - grid.y,
-    w: r.width,
+    w,
     h: r.height,
     font: `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`,
     color: cs.color,
@@ -79,7 +91,16 @@ export function bind(spec: LiveTextSpec, canvas: HTMLCanvasElement, scale: numbe
   const y = Math.floor(spec.y * scale);
   const w = Math.ceil((spec.x + spec.w) * scale) - x;
   const h = Math.ceil((spec.y + spec.h) * scale) - y;
-  const t = { ...spec, canvas, x, y, w, h, scale, background: context(canvas).getImageData(x, y, w, h) };
+  const t = {
+    ...spec,
+    canvas,
+    x,
+    y,
+    w,
+    h,
+    scale,
+    background: context(canvas).getImageData(x, y, w, h),
+  };
   paint(t);
   return t;
 }
