@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  modern-screenshot@4.7.0:
+    hash: a0e8efdb005b039abe07ff671d3102ffa6ccf4c925f701708cfa06f2310efd2d
+    path: patches/modern-screenshot@4.7.0.patch
+
 importers:
 
   .:
@@ -25,7 +30,7 @@ importers:
         version: 2.6.4
       modern-screenshot:
         specifier: 4.7.0
-        version: 4.7.0
+        version: 4.7.0(patch_hash=a0e8efdb005b039abe07ff671d3102ffa6ccf4c925f701708cfa06f2310efd2d)
     devDependencies:
       '@eslint/css':
         specifier: ^2.0.1
@@ -3541,7 +3546,7 @@ snapshots:
     dependencies:
       brace-expansion: 5.0.12
 
-  modern-screenshot@4.7.0: {}
+  modern-screenshot@4.7.0(patch_hash=a0e8efdb005b039abe07ff671d3102ffa6ccf4c925f701708cfa06f2310efd2d): {}
 
   ms@2.1.3: {}
 

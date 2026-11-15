@@ -1,0 +1,204 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index cd4cebcb2c33a84959cb94ce1048c9c16a2f6e7b..0ce83b8a9ecfa5d7602e9ee44564874dfc5924bc 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -785,6 +785,15 @@ function copyCssStyles(node, cloned, isRoot, context) {
+     defaultStyle.delete(key);
+   });
+   const style = getDiffStyle(computedStyle, defaultStyle, includeStyleProperties);
++  // A line clamp is left out of the enumerated computed style (Firefox lists neither
++  // -webkit-line-clamp nor -webkit-box-orient, and reports display as flow-root): without it
++  // the clone is clipped to its height but loses the ellipsis. Copy it by name.
++  const clamp = computedStyle.getPropertyValue("-webkit-line-clamp");
++  if (clamp && clamp !== "none") {
++    style.set("display", ["-webkit-box", ""]);
++    style.set("-webkit-box-orient", [computedStyle.getPropertyValue("-webkit-box-orient") || "vertical", ""]);
++    style.set("-webkit-line-clamp", [clamp, ""]);
++  }
+   style.delete("transition-property");
+   style.delete("all");
+   style.delete("d");
+@@ -831,6 +840,19 @@ const pseudoClasses = [
+   "::after"
+   // '::placeholder', TODO
+ ];
++// Properties a ::first-letter can set (CSS Pseudo-Elements 4, 3.1). Only the ones that differ
++// from the element's own are copied: getComputedStyle answers for any element, and a full copy
++// put inherited colours over the first letter of every element, ::before content included.
++const firstLetterProperties = [
++  "font-family", "font-size", "font-style", "font-weight", "font-variant", "line-height",
++  "color", "-webkit-text-fill-color", "background-color", "background-image", "float", "vertical-align", "text-transform",
++  "letter-spacing", "word-spacing", "text-decoration-line", "text-decoration-color", "text-shadow",
++  "margin-top", "margin-right", "margin-bottom", "margin-left",
++  "padding-top", "padding-right", "padding-bottom", "padding-left",
++  "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
++  "border-top-style", "border-right-style", "border-bottom-style", "border-left-style",
++  "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"
++];
+ const scrollbarPseudoClasses = [
+   "::-webkit-scrollbar",
+   "::-webkit-scrollbar-button",
+@@ -846,13 +868,41 @@ function copyPseudoClass(node, cloned, copyScrollbar, context, addWordToFontFami
+   const { ownerWindow, svgStyleElement, svgStyles, currentNodeStyle } = context;
+   if (!svgStyleElement || !ownerWindow)
+     return;
++  function copyFirstLetter() {
++    const own = ownerWindow.getComputedStyle(node);
++    // ::first-letter applies to block containers only.
++    if (["inline", "contents", "none"].includes(own.display))
++      return;
++    const letter = ownerWindow.getComputedStyle(node, "::first-letter");
++    const lines = [];
++    for (const name of firstLetterProperties) {
++      const value = letter.getPropertyValue(name);
++      if (value !== own.getPropertyValue(name))
++        lines.push(`${name}: ${value};`);
++    }
++    if (lines.length === 0)
++      return;
++    const klass = uuid();
++    try {
++      cloned.className = [cloned.className, klass].join(" ");
++    } catch (err) {
++      context.log.warn("Failed to copy ::first-letter", err);
++      return;
++    }
++    const cssText = lines.join("\n  ");
++    let allClasses = svgStyles.get(cssText);
++    if (!allClasses) {
++      allClasses = [];
++      svgStyles.set(cssText, allClasses);
++    }
++    allClasses.push(`.${klass}::first-letter`);
++  }
+   function copyBy(pseudoClass) {
+     const computedStyle = ownerWindow.getComputedStyle(node, pseudoClass);
+-    let content = computedStyle.getPropertyValue("content");
+-    if (!content || content === "none")
++    const content = computedStyle.getPropertyValue("content");
++    if (!content || content === "none" || content === "normal")
+       return;
+     addWordToFontFamilies?.(content);
+-    content = content.replace(/(')|(")|(counter\(.+\))/g, "");
+     const klasses = [uuid()];
+     const defaultStyle = getDefaultStyle(node, pseudoClass, context);
+     currentNodeStyle?.forEach((_, key) => {
+@@ -865,7 +915,7 @@ function copyPseudoClass(node, cloned, copyScrollbar, context, addWordToFontFami
+       cloned.classList.add("______background-clip--text");
+     }
+     const cloneStyle = [
+-      `content: '${content}';`
++      `content: ${content};`
+     ];
+     style.forEach(([value, priority], name) => {
+       cloneStyle.push(`${name}: ${value}${priority ? " !important" : ""};`);
+@@ -887,6 +937,7 @@ function copyPseudoClass(node, cloned, copyScrollbar, context, addWordToFontFami
+     allClasses.push(`.${klasses[0]}${pseudoClass}`);
+   }
+   pseudoClasses.forEach(copyBy);
++  copyFirstLetter();
+   if (copyScrollbar)
+     scrollbarPseudoClasses.forEach(copyBy);
+ }
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 4ebba57d5736e55f55f569e182635de71bcd26c0..2060b530b99d5252910a10f64b4c3d7df0aa5be6 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -783,6 +783,15 @@ function copyCssStyles(node, cloned, isRoot, context) {
+     defaultStyle.delete(key);
+   });
+   const style = getDiffStyle(computedStyle, defaultStyle, includeStyleProperties);
++  // A line clamp is left out of the enumerated computed style (Firefox lists neither
++  // -webkit-line-clamp nor -webkit-box-orient, and reports display as flow-root): without it
++  // the clone is clipped to its height but loses the ellipsis. Copy it by name.
++  const clamp = computedStyle.getPropertyValue("-webkit-line-clamp");
++  if (clamp && clamp !== "none") {
++    style.set("display", ["-webkit-box", ""]);
++    style.set("-webkit-box-orient", [computedStyle.getPropertyValue("-webkit-box-orient") || "vertical", ""]);
++    style.set("-webkit-line-clamp", [clamp, ""]);
++  }
+   style.delete("transition-property");
+   style.delete("all");
+   style.delete("d");
+@@ -829,6 +838,19 @@ const pseudoClasses = [
+   "::after"
+   // '::placeholder', TODO
+ ];
++// Properties a ::first-letter can set (CSS Pseudo-Elements 4, 3.1). Only the ones that differ
++// from the element's own are copied: getComputedStyle answers for any element, and a full copy
++// put inherited colours over the first letter of every element, ::before content included.
++const firstLetterProperties = [
++  "font-family", "font-size", "font-style", "font-weight", "font-variant", "line-height",
++  "color", "-webkit-text-fill-color", "background-color", "background-image", "float", "vertical-align", "text-transform",
++  "letter-spacing", "word-spacing", "text-decoration-line", "text-decoration-color", "text-shadow",
++  "margin-top", "margin-right", "margin-bottom", "margin-left",
++  "padding-top", "padding-right", "padding-bottom", "padding-left",
++  "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
++  "border-top-style", "border-right-style", "border-bottom-style", "border-left-style",
++  "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"
++];
+ const scrollbarPseudoClasses = [
+   "::-webkit-scrollbar",
+   "::-webkit-scrollbar-button",
+@@ -844,13 +866,41 @@ function copyPseudoClass(node, cloned, copyScrollbar, context, addWordToFontFami
+   const { ownerWindow, svgStyleElement, svgStyles, currentNodeStyle } = context;
+   if (!svgStyleElement || !ownerWindow)
+     return;
++  function copyFirstLetter() {
++    const own = ownerWindow.getComputedStyle(node);
++    // ::first-letter applies to block containers only.
++    if (["inline", "contents", "none"].includes(own.display))
++      return;
++    const letter = ownerWindow.getComputedStyle(node, "::first-letter");
++    const lines = [];
++    for (const name of firstLetterProperties) {
++      const value = letter.getPropertyValue(name);
++      if (value !== own.getPropertyValue(name))
++        lines.push(`${name}: ${value};`);
++    }
++    if (lines.length === 0)
++      return;
++    const klass = uuid();
++    try {
++      cloned.className = [cloned.className, klass].join(" ");
++    } catch (err) {
++      context.log.warn("Failed to copy ::first-letter", err);
++      return;
++    }
++    const cssText = lines.join("\n  ");
++    let allClasses = svgStyles.get(cssText);
++    if (!allClasses) {
++      allClasses = [];
++      svgStyles.set(cssText, allClasses);
++    }
++    allClasses.push(`.${klass}::first-letter`);
++  }
+   function copyBy(pseudoClass) {
+     const computedStyle = ownerWindow.getComputedStyle(node, pseudoClass);
+-    let content = computedStyle.getPropertyValue("content");
+-    if (!content || content === "none")
++    const content = computedStyle.getPropertyValue("content");
++    if (!content || content === "none" || content === "normal")
+       return;
+     addWordToFontFamilies?.(content);
+-    content = content.replace(/(')|(")|(counter\(.+\))/g, "");
+     const klasses = [uuid()];
+     const defaultStyle = getDefaultStyle(node, pseudoClass, context);
+     currentNodeStyle?.forEach((_, key) => {
+@@ -863,7 +913,7 @@ function copyPseudoClass(node, cloned, copyScrollbar, context, addWordToFontFami
+       cloned.classList.add("______background-clip--text");
+     }
+     const cloneStyle = [
+-      `content: '${content}';`
++      `content: ${content};`
+     ];
+     style.forEach(([value, priority], name) => {
+       cloneStyle.push(`${name}: ${value}${priority ? " !important" : ""};`);
+@@ -885,6 +935,7 @@ function copyPseudoClass(node, cloned, copyScrollbar, context, addWordToFontFami
+     allClasses.push(`.${klasses[0]}${pseudoClass}`);
+   }
+   pseudoClasses.forEach(copyBy);
++  copyFirstLetter();
+   if (copyScrollbar)
+     scrollbarPseudoClasses.forEach(copyBy);
+ }
